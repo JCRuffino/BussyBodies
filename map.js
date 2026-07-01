@@ -105,8 +105,16 @@ export function initMap() {
       const pieSvg = makePieRingSvg(counts, total, size);
 
       const html =
-        '<div style="position:relative;width:' + size + 'px;height:' + size + 'px;">' +
-          pieSvg +
+        '<div style="' +
+          'position:relative;' +
+          'width:' + size + 'px;height:' + size + 'px;' +
+          'border-radius:50%;' +
+          'border:3px solid ' + centerColor + ';' +
+          'background:white;' +
+          'box-shadow:0 2px 8px rgba(0,0,0,0.3);' +
+          'overflow:hidden;' +
+        '">' +
+          '<div style="position:absolute;inset:0;">' + pieSvg + '</div>' +
           '<div style="' +
             'position:absolute;inset:0;' +
             'display:flex;align-items:center;justify-content:center;' +
@@ -143,7 +151,6 @@ export function initMap() {
     }
   });
 
-  // ── Start player location sharing once map is ready ───────────
   initPlayerLocationSharing();
 }
 
@@ -411,7 +418,6 @@ function handleMarkerClick(location, marker) {
 // ── PLAYER LOCATION SHARING ───────────────────────────────────────
 function initPlayerLocationSharing() {
 
-  // Push own location every 5 seconds if on a team
   function pushIfOnTeam() {
     const team = getMyTeam();
     if (!team || !map) return;
@@ -429,7 +435,6 @@ function initPlayerLocationSharing() {
     }
   }
 
-  // Remove own location when no team or page unloads
   function clearIfNoTeam() {
     if (!getMyTeam()) removePlayerLocation();
   }
@@ -442,12 +447,10 @@ function initPlayerLocationSharing() {
     removePlayerLocation();
   });
 
-  // Listen to all player locations and render dots
   listenToPlayerLocations(function(players) {
     const now = Date.now();
-    const STALE_MS = 30000; // remove dots older than 30 seconds
+    const STALE_MS = 30000;
 
-    // Remove stale or gone markers
     Object.keys(playerMarkers).forEach(id => {
       if (!players[id] || (now - players[id].ts) > STALE_MS) {
         map.removeLayer(playerMarkers[id]);
@@ -455,14 +458,13 @@ function initPlayerLocationSharing() {
       }
     });
 
-    // Add or update markers
     Object.entries(players).forEach(function(entry) {
       const id     = entry[0];
       const player = entry[1];
       if ((now - player.ts) > STALE_MS) return;
 
-      const color = teamColors[player.team] || '#808080';
-      const icon  = makePlayerIcon(color, player.name);
+      const color  = teamColors[player.team] || '#808080';
+      const icon   = makePlayerIcon(color, player.name);
       const latlng = L.latLng(player.lat, player.lng);
 
       if (playerMarkers[id]) {
