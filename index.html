@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jet Lag Brighton</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    /* ── RESET & BASE ───────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #111; }
+
+    /* ── NAV BAR ────────────────────────────────────────────────── */
+    #nav-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: white;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      z-index: 9000;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: #9ca3af;
+      background: none;
+      border: none;
+      cursor: pointer;
+      gap: 3px;
+      padding: 0;
+      transition: color 0.15s;
+    }
+    .nav-btn .nav-icon { font-size: 22px; line-height: 1; }
+    .nav-btn.active { color: #1d6fd1; }
+
+    /* ── SCREENS ────────────────────────────────────────────────── */
+    .screen {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      bottom: 60px;
+      overflow-y: auto;
+    }
+    .screen.active { display: block; }
+    #screen-map { overflow: hidden; }
+    #map { width: 100%; height: 100%; }
+   #screen-challenges { padding: 14px 10%; background: #f0f2f5; }
+    #screen-leaderboard { padding: 14px; background: #f0f2f5; }
+    #screen-settings { padding: 0; background: #f0f2f5; }
+
+    /* ── SYNC STATUS ────────────────────────────────────────────── */
+    #sync-status {
+      position: fixed;
+      top: 10px; right: 10px;
+      background: white;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 9100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+      color: #6b7280;
+    }
+
+    /* ── SECTION TITLE ──────────────────────────────────────────── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0 0 10px 0;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .divider { height: 1px; background: #e5e7eb; margin: 16px 0; }
+
+    /* ── BUTTONS (shared base) ──────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter 0.15s, transform 0.1s;
+      color: white;
+      line-height: 1;
+    }
+    .btn:active { transform: scale(0.96); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; transform: none; }
+    .btn-primary   { background: #1d6fd1; }
+    .btn-primary:hover:not(:disabled)   { filter: brightness(1.1); }
+    .btn-danger    { background: #e63946; }
+    .btn-danger:hover:not(:disabled)    { filter: brightness(1.08); }
+    .btn-ghost     { background: #f3f4f6; color: #374151; }
+    .btn-ghost:hover:not(:disabled)     { background: #e5e7eb; }
+    .btn-amber     { background: #f59e0b; }
+    .btn-amber:hover:not(:disabled)     { filter: brightness(1.08); }
+    .btn-success   { background: #2a9d3f; }
+    .btn-success:hover:not(:disabled)   { filter: brightness(1.08); }
+    .btn-neutral   { background: #6b7280; }
+    .btn-neutral:hover:not(:disabled)   { filter: brightness(1.1); }
+    .btn-team-a    { background: #e63946; }
+    .btn-team-a:hover:not(:disabled)    { filter: brightness(1.08); }
+    .btn-team-b    { background: #1d6fd1; }
+    .btn-team-b:hover:not(:disabled)    { filter: brightness(1.1); }
+    .btn-team-c    { background: #2a9d3f; }
+    .btn-team-c:hover:not(:disabled)    { filter: brightness(1.08); }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 7px 12px; font-size: 12px; border-radius: 8px; }
+
+    /* ── CHALLENGE CARDS ────────────────────────────────────────── */
+    .challenge-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .card-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .card-reward {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #6b7280;
+    }
+    .card-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      gap: 3px;
+    }
+    .card-buttons { display: flex; gap: 6px; }
+    .card-buttons .btn { flex: 1; padding: 8px 4px; font-size: 12px; }
+
+    /* ── HELD CARDS ─────────────────────────────────────────────── */
+    .held-team-label {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 14px 0 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #374151;
+    }
+    .held-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .held-title {
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .held-reward {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: #6b7280;
+    }
+    .held-buttons { display: flex; gap: 6px; }
+    .held-buttons .btn { flex: 1; font-size: 12px; padding: 8px 4px; }
+
+    .no-challenges {
+      font-size: 13px;
+      color: #9ca3af;
+      font-style: italic;
+      padding: 8px 0;
+    }
+
+    /* ── LEADERBOARD ────────────────────────────────────────────── */
+    .lb-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+    }
+    .lb-card h3 {
+      margin: 0 0 12px 0;
+      font-size: 15px;
+      font-weight: 700;
+      color: #111;
+    }
+    .lb-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 14px;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-left { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+    .lb-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .lb-value { font-weight: 800; font-size: 17px; color: #111; }
+
+    /* ── SETTINGS ───────────────────────────────────────────────── */
+    .settings-container {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .settings-card {
+      background: white;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+      border: 1px solid #e5e7eb;
+    }
+    .settings-card-danger { border-color: rgba(230,57,70,0.3); }
+    .settings-card-title { font-weight: 700; font-size: 15px; margin-bottom: 3px; color: #111; }
+    .settings-card-desc { font-size: 12px; color: #9ca3af; margin-bottom: 14px; line-height: 1.5; }
+
+    .team-assign-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .team-assign-btn {
+      flex: 1;
+      padding: 9px 4px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      background: white;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #374151;
+    }
+    .team-assign-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+    .team-assign-btn.active-a { background: #e63946; color: white; border-color: #e63946; }
+    .team-assign-btn.active-b { background: #1d6fd1; color: white; border-color: #1d6fd1; }
+    .team-assign-btn.active-c { background: #2a9d3f; color: white; border-color: #2a9d3f; }
+
+    .current-team-label { font-size: 12px; color: #6b7280; text-align: center; padding: 4px 0; }
+
+    .team-name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .team-name-row label { width: 55px; font-size: 13px; font-weight: 700; flex-shrink: 0; color: #374151; }
+    .team-name-row input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .team-name-row input:focus { border-color: #1d6fd1; box-shadow: 0 0 0 3px rgba(29,111,209,0.1); }
+
+    .reset-blocked-msg { margin-top: 10px; font-size: 12px; color: #e63946; text-align: center; font-weight: 600; }
+
+    /* ── MODALS ─────────────────────────────────────────────────── */
+    #modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-overlay.active { display: flex; }
+    #modal-box {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      min-width: 280px;
+      max-width: 340px;
+      width: 90%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    #modal-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    #modal-box p  { font-size: 13px; color: #6b7280; margin-bottom: 14px; line-height: 1.5; }
+    #modal-box input {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      font-size: 16px; margin-bottom: 14px;
+      outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    #modal-box input:focus { border-color: #1d6fd1; box-shadow: 0 0 0 3px rgba(29,111,209,0.1); }
+
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      min-width: 280px;
+      max-width: 340px;
+      width: 90%;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: #111; }
+
+    /* ── POPUP (map marker) ─────────────────────────────────────── */
+    .popup-box { font-family: inherit; font-size: 14px; min-width: 210px; }
+    .popup-box strong { display: block; margin-bottom: 4px; font-size: 15px; font-weight: 700; }
+    .popup-box .popup-sub { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+    .popup-box label { display: block; margin-top: 8px; margin-bottom: 3px; font-weight: 700; font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+    .popup-box select {
+      width: 100%; padding: 7px 8px;
+      border: 1px solid #e5e7eb; border-radius: 8px;
+      font-size: 13px; font-family: inherit;
+      outline: none;
+    }
+    .popup-box select:focus { border-color: #1d6fd1; }
+    .popup-box .error-msg { color: #e63946; font-size: 12px; margin-top: 6px; display: none; font-weight: 600; }
+  </style>
+</head>
+
+<body>
+
+  <div id="sync-status">🔄 Connecting...</div>
+
+  <!-- MAP -->
+  <div id="screen-map" class="screen active">
+    <div id="map"></div>
+  </div>
+
+  <!-- CHALLENGES -->
+  <div id="screen-challenges" class="screen">
+    <div class="section-title">⚡ Active Challenges</div>
+    <div id="active-challenges-list"><span class="no-challenges">No active challenges</span></div>
+    <div class="divider"></div>
+    <div class="section-title">🎒 Held Challenges</div>
+    <div id="held-challenges-list"><span class="no-challenges">No held challenges</span></div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="screen-leaderboard" class="screen">
+    <div style="padding: 14px; max-width: 400px; margin: 0 auto;">
+
+      <div class="lb-card">
+        <h3>🚏 Stops Claimed</h3>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#9ca3af"></div> Unclaimed</div>
+          <div class="lb-value" id="count-0">0</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#e63946"></div> <span id="lb-name-1">Team A</span></div>
+          <div class="lb-value" id="count-1">0</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#1d6fd1"></div> <span id="lb-name-2">Team B</span></div>
+          <div class="lb-value" id="count-2">0</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#2a9d3f"></div> <span id="lb-name-3">Team C</span></div>
+          <div class="lb-value" id="count-3">0</div>
+        </div>
+      </div>
+
+      <div class="lb-card">
+        <h3>🪙 Coin Balance</h3>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#e63946"></div> <span id="coins-name-1">Team A</span></div>
+          <div class="lb-value" id="coins-1">50</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#1d6fd1"></div> <span id="coins-name-2">Team B</span></div>
+          <div class="lb-value" id="coins-2">50</div>
+        </div>
+        <div class="lb-row">
+          <div class="lb-left"><div class="lb-dot" style="background:#2a9d3f"></div> <span id="coins-name-3">Team C</span></div>
+          <div class="lb-value" id="coins-3">50</div>
+        </div>
+      </div>
+
+      <div class="lb-card">
+        <h3>🛣️ Route Bonus</h3>
+        <div style="font-size:11px;color:#9ca3af;margin:-8px 0 10px;">
+          Most unique routes claimed — bonus 5 stops
+        </div>
+        <div id="lb-route-bonus"></div>
+      </div>
+
+      <div class="lb-card">
+        <h3>📏 Distance Bonus</h3>
+        <div style="font-size:11px;color:#9ca3af;margin:-8px 0 10px;">
+          Furthest distance between two owned stops — bonus 5 stops
+        </div>
+        <div id="lb-distance-bonus"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="screen-settings">
+    <div class="settings-container">
+
+      <div class="settings-card">
+        <div class="settings-card-title">👤 Your Team</div>
+        <div class="settings-card-desc">Choose a team!</div>
+        <div class="team-assign-buttons">
+          <button class="team-assign-btn" data-team="1">Join Team A</button>
+          <button class="team-assign-btn" data-team="2">Join Team B</button>
+          <button class="team-assign-btn" data-team="3">Join Team C</button>
+        </div>
+        <div id="current-team-label" class="current-team-label">No team assigned</div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">✏️ Team Names</div>
+        <div class="settings-card-desc">Rename teams (max 12 characters).</div>
+        <div class="team-name-row">
+          <label>Team A</label>
+          <input type="text" id="name-input-1" maxlength="12" placeholder="Team A" />
+          <button class="btn btn-primary btn-sm btn-save-name" data-team="1">Apply</button>
+        </div>
+        <div class="team-name-row">
+          <label>Team B</label>
+          <input type="text" id="name-input-2" maxlength="12" placeholder="Team B" />
+          <button class="btn btn-primary btn-sm btn-save-name" data-team="2">Apply</button>
+        </div>
+        <div class="team-name-row">
+          <label>Team C</label>
+          <input type="text" id="name-input-3" maxlength="12" placeholder="Team C" />
+          <button class="btn btn-primary btn-sm btn-save-name" data-team="3">Apply</button>
+        </div>
+      </div>
+
+      <div class="settings-card settings-card-danger">
+        <div class="settings-card-title">🔴 Reset Game</div>
+        <div class="settings-card-desc">Full reset to start a new game.</div>
+        <button id="reset-btn" class="btn btn-danger btn-full">Reset Game</button>
+        <div id="reset-blocked-msg" class="reset-blocked-msg" style="display:none;">
+          ⚠️ Unassign yourself before resetting.
+        </div>
+      </div>
+
+      <div id="reset-overlay" class="modal-overlay">
+        <div class="modal-box">
+          <div class="modal-title">⚠️ Reset Game?</div>
+          <p style="font-size:13px;color:#6b7280;margin:6px 0 16px;line-height:1.5;">
+            This resets stops, coins, and challenges. Enter the password to confirm.
+          </p>
+          <input
+            id="reset-password-input"
+            type="password"
+            placeholder="Enter password"
+            style="width:100%;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:6px;outline:none;font-family:inherit;transition:border-color 0.15s;"
+          />
+          <div id="reset-password-error" style="font-size:12px;color:#e63946;font-weight:600;margin-bottom:12px;display:none;">
+            ❌ Incorrect password
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button id="reset-confirm-btn" class="btn btn-danger" style="flex:1;">Yes, Reset</button>
+            <button id="reset-cancel-btn" class="btn btn-ghost" style="flex:1;">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div id="nav-bar">
+    <button class="nav-btn active" data-screen="map">
+      <span class="nav-icon">🗺️</span>Map
+    </button>
+    <button class="nav-btn" data-screen="challenges">
+      <span class="nav-icon">⚡</span>Challenges
+    </button>
+    <button class="nav-btn" data-screen="leaderboard">
+      <span class="nav-icon">🏆</span>Leaderboard
+    </button>
+    <button class="nav-btn" data-screen="settings">
+      <span class="nav-icon">⚙️</span>Settings
+    </button>
+  </div>
+
+  <!-- VARIABLE CHALLENGE MODAL -->
+  <div id="modal-overlay">
+    <div id="modal-box">
+      <h3 id="modal-title">Variable Challenge</h3>
+      <p id="modal-note"></p>
+      <input id="modal-input" type="number" min="0" placeholder="Enter coin amount" />
+      <button id="modal-confirm" class="btn btn-amber btn-full">Confirm</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script type="module" src="main.js"></script>
+
+</body>
+</html>
