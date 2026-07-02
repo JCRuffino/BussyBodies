@@ -18,37 +18,6 @@ const teamColors = {
   3: '#2a9d3f'
 };
 
-function makePieRingSvg(counts, total, size) {
-  if (total === 0) return '';
-  const cx = size / 2;
-  const cy = size / 2;
-  const r  = (size / 2) - 2;
-  const strokeW = 6;
-  let segments = '';
-  let cumAngle = -Math.PI / 2;
-
-  Object.entries(counts).forEach(function(entry) {
-    const team  = entry[0];
-    const count = entry[1];
-    if (count === 0) return;
-    const angle = (count / total) * 2 * Math.PI;
-    const x1 = cx + r * Math.cos(cumAngle);
-    const y1 = cy + r * Math.sin(cumAngle);
-    const x2 = cx + r * Math.cos(cumAngle + angle);
-    const y2 = cy + r * Math.sin(cumAngle + angle);
-    const largeArc = angle > Math.PI ? 1 : 0;
-    const color = teamColors[team];
-    segments += '<path d="M ' + cx + ' ' + cy + ' L ' + x1 + ' ' + y1 +
-      ' A ' + r + ' ' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ' ' + y2 +
-      ' Z" fill="' + color + '" opacity="0.9"/>';
-    cumAngle += angle;
-  });
-
-  segments += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r - strokeW) + '" fill="white"/>';
-
-  return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '" xmlns="http://www.w3.org/2000/svg">' + segments + '</svg>';
-}
-
 function makePlayerIcon(color, label) {
   return L.divIcon({
     className: '',
@@ -87,50 +56,7 @@ export function initMap() {
     disableClusteringAtZoom: 16,
     maxClusterRadius: 60,
     spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false,
-    iconCreateFunction: function(cluster) {
-      const children = cluster.getAllChildMarkers();
-      const total = children.length;
-      const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
-      children.forEach(function(m) {
-        const team = m.options._teamIndex !== undefined ? m.options._teamIndex : 0;
-        counts[team] = (counts[team] || 0) + 1;
-      });
-
-      const dominant = parseInt(
-        Object.entries(counts).sort(function(a, b) { return b[1] - a[1]; })[0][0]
-      );
-      const centerColor = teamColors[dominant];
-      const size = 44;
-      const pieSvg = makePieRingSvg(counts, total, size);
-
-      const html =
-        '<div style="' +
-          'position:relative;' +
-          'width:' + size + 'px;height:' + size + 'px;' +
-          'border-radius:50%;' +
-          'border:3px solid ' + centerColor + ';' +
-          'background:white;' +
-          'box-shadow:0 2px 8px rgba(0,0,0,0.3);' +
-          'overflow:hidden;' +
-        '">' +
-          '<div style="position:absolute;inset:0;">' + pieSvg + '</div>' +
-          '<div style="' +
-            'position:absolute;inset:0;' +
-            'display:flex;align-items:center;justify-content:center;' +
-            'font-weight:bold;font-size:13px;' +
-            'font-family:Arial,sans-serif;' +
-            'color:' + centerColor + ';' +
-          '">' + total + '</div>' +
-        '</div>';
-
-      return L.divIcon({
-        html: html,
-        className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-      });
-    }
+    showCoverageOnHover: false
   });
   map.addLayer(markerCluster);
 
@@ -264,6 +190,49 @@ function handleMarkerClick(location, marker) {
     return i === 0 ? 'No Control' : (teamNames[i] || states[i].label);
   }
 
+  const isUnclaimed     = stop.stateIndex === 0;
+  const controllingTeam = stop.stateIndex;
+
+  let teamOptions = '';
+  if (isUnclaimed) {
+    [1, 2, 3].forEach(function(i) {
+      const isRestricted = myTeam !== null && i !== myTeam;
+      const dis = isRestricted ? ' disabled' : '';
+      teamOptions += '<option value="' + i + '"' + dis + '>' + tName(i) + '</option>';
+    });
+  } else {
+    teamOptions = '<option value="' + controllingTeam + '" selected>' +
+      tName(controllingTeam) + '</option>';
+  }
+
+  const currentValue = Math.max(1, stop.value);
+  let valueOptions = '';
+  for (let v = currentValue; v <= currentValue + 4; v++) {
+    valueOptions += '<option value="' + v + '"' +
+      (v === stop.value ? ' selected' : '') + '>' + v + '</option>';
+  }
+
+  let bankruptHTML = '';
+  if (!isUnclaimed && myTeam !== null && myTeam !== controllingTeam) {
+    const myCoins   = (gs.coins && gs.coins[myTeam]) || 0;
+    const canAfford = myCoins >= stop.value;
+    const dis       = canAfford ? ' disabled' : '';
+    const bg        = canAfford ? '#9ca3af' : '#f59e0b';
+    const cursor    = canAfford ? 'not-allowed' : 'pointer';
+    bankruptHTML =
+      '<button id="bankrupt-btn"' + dis + ' style="' +
+        'margin-top:8px;width:100%;padding:10px;background:' + bg + ';color:white;' +
+        'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:' + cursor + ';' +
+        'text-align:center;font-family:inherit;transition:filter 0.15s;">' +
+        '💸 Bankrupt' +
+      '</button>' +
+      '<div style="font-size:11px;color:#9ca3af;margin-top:4px;text-align:center;">' +
+        (canAfford
+          ? 'You have enough coins to claim this stop'
+          : 'Press if you cannot afford to claim this stop') +
+      '</div>';
+  }
+
   let challengeHTML = '';
   if (ch) {
     const failedNote = ch.failedBy && ch.failedBy.length > 0
@@ -294,28 +263,13 @@ function handleMarkerClick(location, marker) {
       '</div>';
   }
 
-  const teamOptions = states.map(function(s, i) {
-    const isRestricted = myTeam !== null && i !== 0 && i !== myTeam;
-    const dis = isRestricted ? ' disabled' : '';
-    return '<option value="' + i + '"' +
-      (i === stop.stateIndex ? ' selected' : '') + dis + '>' +
-      tName(i) + '</option>';
-  }).join('');
-
-  const minValue = Math.max(1, stop.value);
-  let valueOptions = '';
-  for (let v = minValue; v <= minValue + 4; v++) {
-    valueOptions += '<option value="' + v + '"' +
-      (v === stop.value ? ' selected' : '') + '>' + v + '</option>';
-  }
-
   const popupContent = document.createElement('div');
   popupContent.className = 'popup-box';
   popupContent.innerHTML =
     '<strong>' + location.name + '</strong>' +
     '<div class="popup-sub">Current: ' + tName(stop.stateIndex) +
       ' — Value: ' + stop.value + '</div>' +
-    '<label>Controlling Team</label>' +
+    (isUnclaimed ? '<label>Claiming Team</label>' : '<label>Controlling Team</label>') +
     '<select id="team-select">' + teamOptions + '</select>' +
     '<label>New Value</label>' +
     '<select id="value-select">' + valueOptions + '</select>' +
@@ -333,6 +287,7 @@ function handleMarkerClick(location, marker) {
       'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;' +
       'text-align:center;font-family:inherit;transition:filter 0.15s;">' +
       '🚌 Claim! 🚌</button>' +
+    bankruptHTML +
     challengeHTML;
 
   popupContent.querySelector('#apply-btn').addEventListener('click', function() {
@@ -342,22 +297,23 @@ function handleMarkerClick(location, marker) {
     const routeVal      = popupContent.querySelector('#route-input').value.trim().toUpperCase();
     const errorEl       = popupContent.querySelector('#error-msg');
 
-    if (myTeam !== null && selectedIndex !== 0 && selectedIndex !== myTeam) {
+    if (myTeam !== null && selectedIndex !== myTeam) {
       errorEl.textContent   = 'You can only assign stops to your own team!';
       errorEl.style.display = 'block';
       return;
     }
 
-    const cost = selectedValue - stop.value;
-    if (selectedIndex !== 0 && cost > 0 && gs2data.coins[selectedIndex] < cost) {
+    const cost      = selectedValue - stop.value;
+    const coinCheck = isUnclaimed ? selectedValue : cost;
+
+    if (coinCheck > 0 && gs2data.coins[selectedIndex] < coinCheck) {
       errorEl.textContent   = 'Not enough coins!';
       errorEl.style.display = 'block';
       return;
     }
 
     const gs2 = JSON.parse(JSON.stringify(gs2data));
-
-    if (selectedIndex !== 0 && cost > 0) gs2.coins[selectedIndex] -= cost;
+    if (coinCheck > 0) gs2.coins[selectedIndex] -= coinCheck;
 
     gs2.stops[key].stateIndex = selectedIndex;
     gs2.stops[key].value      = selectedValue;
@@ -377,6 +333,33 @@ function handleMarkerClick(location, marker) {
     marker.unbindPopup();
     map.closePopup();
   });
+
+  const bankruptBtn = popupContent.querySelector('#bankrupt-btn');
+  if (bankruptBtn) {
+    bankruptBtn.addEventListener('click', function() {
+      const gs2data = gameState.data;
+      const myCoins = (gs2data.coins && gs2data.coins[myTeam]) || 0;
+
+            const confirmed = window.confirm(
+        '💸 Declare Bankruptcy?\n\n' +
+        tName(controllingTeam) + ' will receive ' + stop.value + ' coin(s) — ' +
+        'equal to the value of this stop.\n\n' +
+        'The stop value and ownership will NOT change.\n\n' +
+        'Are you sure?'
+      );
+
+      if (!confirmed) return;
+
+      const gs2 = JSON.parse(JSON.stringify(gs2data));
+            gs2.coins[controllingTeam] = (gs2.coins[controllingTeam] || 0) + stop.value;
+      gs2.coins[myTeam] = Math.max(0, myCoins - stop.value);
+
+
+      pushState(gs2);
+      marker.unbindPopup();
+      map.closePopup();
+    });
+  }
 
   if (ch) {
     popupContent.querySelectorAll('[data-claim-team]').forEach(function(btn) {
@@ -411,6 +394,92 @@ function handleMarkerClick(location, marker) {
       });
     });
   }
+  // ── Admin: reset stop (unassigned players only) ────────────────
+  if (getMyTeam() === null) {
+    const adminResetHTML =
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;">' +
+        '<div style="font-size:11px;font-weight:700;color:#f59e0b;margin-bottom:6px;">⚙️ Admin: Reset Stop</div>' +
+        '<button id="admin-reset-btn" style="' +
+          'width:100%;padding:8px;background:#f59e0b;color:white;' +
+          'border:none;border-radius:8px;font-size:13px;font-weight:700;' +
+          'cursor:pointer;font-family:inherit;">' +
+          '🔄 Reset This Stop' +
+        '</button>' +
+      '</div>';
+
+    popupContent.innerHTML += adminResetHTML;
+
+    popupContent.querySelector('#admin-reset-btn').addEventListener('click', function() {
+      const teamNames = (gameState.data && gameState.data.teamNames) || {};
+
+      // Build the confirm dialog
+      const overlay = document.createElement('div');
+      overlay.style.cssText =
+        'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;' +
+        'display:flex;align-items:center;justify-content:center;';
+
+      const box = document.createElement('div');
+      box.style.cssText =
+        'background:white;border-radius:16px;padding:24px;width:90%;max-width:320px;' +
+        'box-shadow:0 8px 40px rgba(0,0,0,0.18);font-family:inherit;';
+
+      const teamOpts = [0, 1, 2, 3].map(i => {
+        const name = i === 0 ? 'No Control' : (teamNames[i] || baseStates[i].label);
+        return '<option value="' + i + '">' + name + '</option>';
+      }).join('');
+
+      box.innerHTML =
+        '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">🔄 Reset Stop</div>' +
+        '<div style="font-size:13px;color:#6b7280;margin-bottom:14px;">' +
+          'Set the new state for <strong>' + location.name + '</strong>.' +
+        '</div>' +
+        '<label style="font-size:12px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">Assign to Team</label>' +
+        '<select id="reset-team-select" style="width:100%;padding:8px;border:1px solid #e5e7eb;' +
+          'border-radius:8px;font-size:13px;font-family:inherit;margin-bottom:10px;outline:none;">' +
+          teamOpts +
+        '</select>' +
+        '<label style="font-size:12px;font-weight:700;color:#6b7280;display:block;margin-bottom:4px;">Coin Value</label>' +
+        '<input id="reset-value-input" type="number" min="0" value="0" ' +
+          'style="width:100%;padding:8px;border:1px solid #e5e7eb;border-radius:8px;' +
+          'font-size:13px;font-family:inherit;margin-bottom:14px;outline:none;" />' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button id="reset-confirm" style="flex:1;padding:10px;background:#f59e0b;color:white;' +
+            'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Confirm</button>' +
+          '<button id="reset-cancel" style="flex:1;padding:10px;background:#f3f4f6;color:#374151;' +
+            'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Cancel</button>' +
+        '</div>';
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      box.querySelector('#reset-cancel').addEventListener('click', () => {
+        document.body.removeChild(overlay);
+      });
+
+      box.querySelector('#reset-confirm').addEventListener('click', () => {
+        const newTeam  = parseInt(box.querySelector('#reset-team-select').value);
+        const newValue = Math.max(0, parseInt(box.querySelector('#reset-value-input').value) || 0);
+
+        const gs2 = JSON.parse(JSON.stringify(gameState.data));
+        gs2.stops[key].stateIndex = newTeam;
+        gs2.stops[key].value      = newValue;
+        gs2.stops[key].route      = '';
+        gs2.stops[key].challenge  = null;
+
+        // Remove any active challenge on this stop
+        if (gs2.activeChallenges && gs2.activeChallenges[key]) {
+          delete gs2.activeChallenges[key];
+        }
+
+        pushState(gs2);
+        document.body.removeChild(overlay);
+        marker.unbindPopup();
+        map.closePopup();
+      });
+    });
+  }
+
+  marker.bindPopup(popupContent).openPopup();
 
   marker.bindPopup(popupContent).openPopup();
 }
