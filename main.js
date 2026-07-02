@@ -66,6 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn.dataset.screen === 'map') setTimeout(() => getMap().invalidateSize(), 50);
     });
   });
+  // ── ACCORDION ─────────────────────────────────────────────────
+  document.querySelectorAll('.accordion-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const body = btn.nextElementSibling;
+      btn.classList.toggle('open');
+      body.classList.toggle('open');
+    });
+  });
 
   console.log('📂 Fetching CSVs...');
   Promise.all([
