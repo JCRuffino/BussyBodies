@@ -24,6 +24,7 @@
       display: flex;
       z-index: 9000;
       box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+      
     }
     .nav-btn {
       flex: 1;
@@ -43,6 +44,57 @@
     }
     .nav-btn .nav-icon { font-size: 22px; line-height: 1; }
     .nav-btn.active { color: #1d6fd1; }
+    /* ── RULES ACCORDION ────────────────────────────────────────── */
+    .rules-card {
+      background: white;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      border: 1px solid #e5e7eb;
+    }
+    .accordion-item {
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .accordion-item:last-child {
+      border-bottom: none;
+    }
+    .accordion-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 700;
+      color: #111;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .accordion-btn:hover { background: #f9fafb; }
+    .accordion-btn::after {
+      content: '›';
+      font-size: 18px;
+      color: #9ca3af;
+      transition: transform 0.2s;
+      transform: rotate(90deg);
+    }
+    .accordion-btn.open::after {
+      transform: rotate(270deg);
+    }
+    .accordion-body {
+      display: none;
+      padding: 0 16px 14px 16px;
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    .accordion-body.open { display: block; }
+    .accordion-body p { margin-bottom: 8px; }
+    .accordion-body p:last-child { margin-bottom: 0; }
 
     /* ── SCREENS ────────────────────────────────────────────────── */
     .screen {
@@ -496,6 +548,76 @@
 
     </div>
   </div>
+  <!-- RULES -->
+  <div id="screen-rules" class="screen">
+    <div style="padding: 14px; max-width: 400px; margin: 0 auto;">
+
+      <div class="rules-card">
+
+        <div class="accordion-item">
+          <button class="accordion-btn">🎯 Objective</button>
+          <div class="accordion-body">
+            <p>Control as many bus stops as possible across Brighton. The team with the most stops at the end of the game wins.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">🚏 Claiming Stops</button>
+          <div class="accordion-body">
+            <p>Tap a stop on the map to open it. Select your team and a value, then press Claim. The value you set is the cost in coins — you must have enough coins to claim it.</p>
+            <p>Once claimed, a stop cannot revert to unclaimed. Only the controlling team can increase its value.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">🪙 Coins</button>
+          <div class="accordion-body">
+            <p>Each team starts with 50 coins. Coins are spent when claiming or upgrading stops. You cannot spend more coins than you have.</p>
+            <p>Coins can be earned by completing challenges.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">⚡ Challenges</button>
+          <div class="accordion-body">
+            <p>Challenges appear on stops across the map. Tap the stop and claim the challenge for your team to add it to your held challenges.</p>
+            <p>Complete the challenge in real life, then resolve it from the Challenges screen to earn coins or steal stops.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">💸 Bankruptcy</button>
+          <div class="accordion-body">
+            <p>If you cannot afford to claim a stop owned by another team, you may declare bankruptcy on that stop.</p>
+            <p>Doing so transfers all of your coins to the team that controls that stop. The stop's value and ownership do not change.</p>
+            <p>The bankruptcy button is only active when you cannot afford the stop.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">🛣️ Route Bonus</button>
+          <div class="accordion-body">
+            <p>The team that has claimed stops on the most unique bus routes earns a bonus of 5 stops at the end of the game.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">📏 Distance Bonus</button>
+          <div class="accordion-body">
+            <p>The team with the greatest straight-line distance between any two of their owned stops earns a bonus of 5 stops at the end of the game.</p>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-btn">🏆 Winning</button>
+          <div class="accordion-body">
+            <p>The game ends at an agreed time. The team with the highest total stop count — including any bonuses — wins.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
 
   <!-- NAV -->
   <div id="nav-bar">
@@ -511,7 +633,11 @@
     <button class="nav-btn" data-screen="settings">
       <span class="nav-icon">⚙️</span>Settings
     </button>
+    <button class="nav-btn" data-screen="rules">
+      <span class="nav-icon">📖</span>Rules
+    </button>
   </div>
+
 
   <!-- VARIABLE CHALLENGE MODAL -->
   <div id="modal-overlay">
