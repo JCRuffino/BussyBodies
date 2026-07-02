@@ -36,14 +36,19 @@ export function initSettings(resetCallback) {
     refreshResetBtn();
   }
 
-  assignBtns.forEach(btn => {
+    assignBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       const t = parseInt(btn.dataset.team);
       if (getMyTeam() === t) setMyTeam(null);
       else setMyTeam(t);
       refreshAssignUI();
+      // Re-render UI so challenge restrictions update immediately
+      if (gameState.data) {
+        import('./ui.js').then(({ renderAll }) => renderAll(gameState.data));
+      }
     });
   });
+
 
   // ── Team names ────────────────────────────────────────────────────
   [1, 2, 3].forEach(t => {
