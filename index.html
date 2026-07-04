@@ -422,35 +422,19 @@
   </div>
 
   <!-- LEADERBOARD -->
-  <div id="screen-leaderboard" class="screen">
+   <div id="screen-leaderboard" class="screen">
     <div style="padding: 14px; max-width: 400px; margin: 0 auto;">
 
       <div class="lb-card">
         <h3>🚏 Stops Claimed</h3>
-        <div class="lb-row">
-          <div class="lb-left"><div class="lb-dot" style="background:#9ca3af"></div> Unclaimed</div>
-          <div class="lb-value" id="count-0">0</div>
-        </div>
-        <div class="lb-row">
-          <div class="lb-left"><div class="lb-dot" style="background:#e63946"></div> <span id="lb-name-1">Team A</span></div>
-          <div class="lb-value" id="count-1">0</div>
-        </div>
-        <div class="lb-row">
-          <div class="lb-left"><div class="lb-dot" style="background:#1d6fd1"></div> <span id="lb-name-2">Team B</span></div>
-          <div class="lb-value" id="count-2">0</div>
-        </div>
-        <div class="lb-row">
-          <div class="lb-left"><div class="lb-dot" style="background:#2a9d3f"></div> <span id="lb-name-3">Team C</span></div>
-          <div class="lb-value" id="count-3">0</div>
-        </div>
+        <div id="leaderboard-rows"></div>
       </div>
 
-      <div class="lb-card">
+        <div class="lb-card">
         <h3>🪙 Coin Balance</h3>
-        <div class="lb-row">
-          <div class="lb-left"><div class="lb-dot" style="background:#e63946"></div> <span id="coins-name-1">Team A</span></div>
-          <div class="lb-value" id="coins-1">50</div>
-        </div>
+        <div id="coin-rows"></div>
+      </div>
+
         <div class="lb-row">
           <div class="lb-left"><div class="lb-dot" style="background:#1d6fd1"></div> <span id="coins-name-2">Team B</span></div>
           <div class="lb-value" id="coins-2">50</div>
@@ -479,6 +463,7 @@
 
     </div>
   </div>
+
 
   <!-- SETTINGS -->
   <div class="screen" id="screen-settings">
