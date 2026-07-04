@@ -483,8 +483,6 @@ function handleMarkerClick(location, marker) {
   }
 
   marker.bindPopup(popupContent).openPopup();
-
-  marker.bindPopup(popupContent).openPopup();
 }
 
 // ── PLAYER LOCATION SHARING ───────────────────────────────────────
