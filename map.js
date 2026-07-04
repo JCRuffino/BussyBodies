@@ -242,14 +242,17 @@ function handleMarkerClick(location, marker) {
     const teamBtns = [1, 2, 3].map(function(ti) {
       const isFailed     = ch.failedBy && ch.failedBy.includes(ti);
       const isRestricted = myTeam !== null && myTeam !== ti;
+      const heldCount    = (gs.heldChallenges && gs.heldChallenges[ti] || []).length;
+      const isFull       = heldCount >= 3;
       const bg  = ['', '#e63946', '#1d6fd1', '#2a9d3f'][ti];
-      const dis = (isFailed || isRestricted) ? ' disabled' : '';
-      const col = (isFailed || isRestricted) ? '#ccc' : bg;
+      const dis = (isFailed || isRestricted || isFull) ? ' disabled' : '';
+      const col = (isFailed || isRestricted || isFull) ? '#ccc' : bg;
       return '<button data-claim-team="' + ti + '"' + dis +
         ' style="flex:1;padding:6px 2px;font-size:12px;border:none;border-radius:6px;' +
         'cursor:pointer;color:white;font-weight:bold;background:' + col + ';">' +
         tName(ti) + '</button>';
     }).join('');
+
     challengeHTML =
       '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;">' +
       '<div style="font-weight:bold;font-size:13px;margin-bottom:4px;">' +
