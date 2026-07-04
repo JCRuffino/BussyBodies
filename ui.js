@@ -15,7 +15,6 @@ export function renderAll(gs) {
   renderDistanceBonus(gs);
   renderAdminPanel(gs);
 }
-
 function updateLeaderboard(gs) {
   const names  = (gs && gs.teamNames) || {};
   const counts = [0, 0, 0, 0];
@@ -43,35 +42,75 @@ function updateLeaderboard(gs) {
   if (routeWinner) bonus[routeWinner] += 5;
   if (distWinner)  bonus[distWinner]  += 5;
 
-  const el0 = document.getElementById('count-0');
-  if (el0) el0.textContent = counts[0];
+  // Sort teams by total (stops + bonus) descending
+  const sorted = [1, 2, 3].sort((a, b) =>
+    (counts[b] + bonus[b]) - (counts[a] + bonus[a])
+  );
 
-  [1, 2, 3].forEach(i => {
-    const el     = document.getElementById('count-' + i);
-    const nameEl = document.getElementById('lb-name-' + i);
-    if (nameEl) nameEl.textContent = names[i] || baseStates[i].label;
-    if (!el) return;
-    if (bonus[i] > 0) {
-      el.innerHTML =
-        counts[i] +
-        '<span style="font-size:13px;font-weight:600;color:#f59e0b;margin-left:4px;">' +
-          '(+' + bonus[i] + ')' +
-        '</span>';
-    } else {
-      el.textContent = counts[i];
-    }
-  });
+  const lbEl = document.getElementById('leaderboard-rows');
+  if (lbEl) {
+    lbEl.innerHTML = '';
+    sorted.forEach((i, rank) => {
+      const name  = names[i] || baseStates[i].label;
+      const color = baseStates[i].color;
+      const medal = ['🥇', '🥈', '🥉'][rank];
+      const bonusHTML = bonus[i] > 0
+        ? '<span style="font-size:13px;font-weight:600;color:#f59e0b;margin-left:4px;">(+' + bonus[i] + ')</span>'
+        : '';
+
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      row.innerHTML =
+        '<div class="lb-left">' +
+          '<div class="lb-dot" style="background:' + color + '"></div>' +
+          '<span>' + medal + ' ' + name + '</span>' +
+        '</div>' +
+        '<div class="lb-value" id="count-' + i + '">' + counts[i] + bonusHTML + '</div>';
+      lbEl.appendChild(row);
+    });
+  } else {
+    // Fallback: update existing elements if no leaderboard-rows container
+    [1, 2, 3].forEach(i => {
+      const el     = document.getElementById('count-' + i);
+      const nameEl = document.getElementById('lb-name-' + i);
+      if (nameEl) nameEl.textContent = names[i] || baseStates[i].label;
+      if (!el) return;
+      if (bonus[i] > 0) {
+        el.innerHTML = counts[i] +
+          '<span style="font-size:13px;font-weight:600;color:#f59e0b;margin-left:4px;">(+' + bonus[i] + ')</span>';
+      } else {
+        el.textContent = counts[i];
+      }
+    });
+  }
 }
+
 
 function updateCoins(gs) {
   const names = (gs && gs.teamNames) || {};
-  [1, 2, 3].forEach(i => {
-    const el = document.getElementById('coins-' + i);
-    if (el) el.textContent = gs.coins[i];
-    const nameEl = document.getElementById('coins-name-' + i);
-    if (nameEl) nameEl.textContent = names[i] || baseStates[i].label;
+  const el = document.getElementById('coin-rows');
+  if (!el) return;
+
+  const sorted = [1, 2, 3].sort((a, b) => (gs.coins[b] || 0) - (gs.coins[a] || 0));
+
+  el.innerHTML = '';
+  sorted.forEach((i, rank) => {
+    const name  = names[i] || baseStates[i].label;
+    const color = baseStates[i].color;
+    const medal = ['🥇', '🥈', '🥉'][rank];
+
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    row.innerHTML =
+      '<div class="lb-left">' +
+        '<div class="lb-dot" style="background:' + color + '"></div>' +
+        '<span>' + medal + ' ' + name + '</span>' +
+      '</div>' +
+      '<div class="lb-value" id="coins-' + i + '">🪙 ' + (gs.coins[i] || 0) + '</div>';
+    el.appendChild(row);
   });
 }
+
 
 function updateAllMarkers(gs) {
   Object.keys(allMarkers).forEach(name => {
@@ -247,8 +286,6 @@ function renderActivePanel(gs) {
   const activeList = document.getElementById('active-challenges-list');
   const activeKeys = Object.keys(gs.activeChallenges || {});
 
-  renderAdminPanel(gs);
-
   if (activeKeys.length === 0) {
     activeList.innerHTML = '<span class="no-challenges">No active challenges</span>';
     return;
@@ -270,12 +307,16 @@ function renderActivePanel(gs) {
     const teamButtons = [1, 2, 3].map(ti => {
       const isFailed     = ch.failedBy && ch.failedBy.includes(ti);
       const isRestricted = myTeam !== null && myTeam !== ti;
+      const heldCount    = (gs.heldChallenges[ti] || []).length;
+      const isFull       = heldCount >= 3;
       const cls = ['', 'btn btn-team-a', 'btn btn-team-b', 'btn btn-team-c'][ti];
-      const dis = (isFailed || isRestricted) ? ' disabled' : '';
+      const dis = (isFailed || isRestricted || isFull) ? ' disabled' : '';
       const name = teamNames[ti] || states[ti].label;
+      const title = isFull ? ' title="Held challenge limit reached"' : '';
       return '<button class="' + cls + '" data-key="' + key +
-        '" data-team="' + ti + '"' + dis + '>' + name + '</button>';
+        '" data-team="' + ti + '"' + dis + title + '>' + name + '</button>';
     }).join('');
+
 
     const numBadge = ch.challengeNumber
       ? '<span class="card-badge" style="background:#374151">#' + ch.challengeNumber + '</span>'
