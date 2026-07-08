@@ -30,13 +30,10 @@ const authReady = signInAnonymously(auth)
   });
 
 // ── DEVICE ID ─────────────────────────────────────────────────────
+// The anonymous auth UID — security rules only let a device write to
+// playerLocations/<its own uid>, so IDs must come from auth
 function getDeviceId() {
-  let id = sessionStorage.getItem('deviceId');
-  if (!id) {
-    id = 'dev_' + Math.random().toString(36).slice(2, 10);
-    sessionStorage.setItem('deviceId', id);
-  }
-  return id;
+  return auth.currentUser.uid;
 }
 
 // ── GAME STATE WRITE ──────────────────────────────────────────────
