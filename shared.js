@@ -1,4 +1,5 @@
 export const MAX_ACTIVE = 6;
+export const MAX_HELD   = 3;
 
 export const states = [
   { label: "No Control", color: "#808080" },
@@ -6,12 +7,16 @@ export const states = [
   { label: "Team B",     color: "#1d6fd1" },
   { label: "Team C",     color: "#2a9d3f" },
 ];
-export const baseStates = [
-  { label: 'No Control', color: '#808080' },
-  { label: 'Team A',     color: '#e63946' },
-  { label: 'Team B',     color: '#1d6fd1' },
-  { label: 'Team C',     color: '#2a9d3f' },
-];
+
+// Escape user-supplied strings before inserting into innerHTML
+export function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export function getMyTeam() {
   const v = localStorage.getItem('myTeam');
@@ -107,6 +112,32 @@ export function spawnChallenge(gs, forcedStop, challengeData) {
   if (!gs.activeChallenges) gs.activeChallenges = {};
   gs.activeChallenges[key] = { ...ch, locationName: stop.name };
   if (gs.stops[key]) gs.stops[key].challenge = ch;
+}
+
+// Move an active challenge into a team's held list; returns the picked
+// challenge, or null if it no longer exists or the team is at MAX_HELD
+export function pickUpChallenge(gs, key, teamIndex) {
+  const reg = gs.activeChallenges && gs.activeChallenges[key];
+  if (!reg) return null;
+  if (!gs.heldChallenges) gs.heldChallenges = { 1: [], 2: [], 3: [] };
+  if (!gs.heldChallenges[teamIndex]) gs.heldChallenges[teamIndex] = [];
+  if (gs.heldChallenges[teamIndex].length >= MAX_HELD) return null;
+  gs.heldChallenges[teamIndex].push({
+    challengeNumber: reg.challengeNumber,
+    locationName:    reg.locationName,
+    type:            reg.type,
+    coinValue:       reg.coinValue,
+    stealPercent:    reg.stealPercent,
+    failedBy:        [...(reg.failedBy || [])],
+    failCount:       reg.failCount || 0,
+    pickedUpBy:      teamIndex,
+  });
+  if (gs.stops[key]) gs.stops[key].challenge = null;
+  delete gs.activeChallenges[key];
+  if (countActive(gs) < MAX_ACTIVE) {
+    spawnChallenge(gs, null, drawChallenge(gs.pool));
+  }
+  return reg;
 }
 
 export function shuffleArray(arr) {
@@ -214,8 +245,10 @@ let modalCallback = null;
 
 export function showVariableModal(teamIndex, failCount, callback) {
   const overlay = document.getElementById('modal-overlay');
+  const input   = document.getElementById('modal-input');
   document.getElementById('modal-title').textContent = states[teamIndex].label + ' — Variable Challenge Complete';
-  document.getElementById('modal-input').value = '';
+  input.value = '';
+  input.style.border = '';
   const note = document.getElementById('modal-note');
   if (failCount > 0) {
     note.innerHTML = '⚠️ Previously failed <strong>' + failCount + '</strong> time(s). Add <strong>' + (failCount * 10) + ' extra coins</strong>.';
@@ -225,13 +258,17 @@ export function showVariableModal(teamIndex, failCount, callback) {
   modalCallback = callback;
   overlay.classList.add('active');
   document.getElementById('modal-confirm').onclick = function () {
-    const val = parseInt(document.getElementById('modal-input').value);
+    const val = parseInt(input.value);
     if (isNaN(val) || val < 0) {
-      document.getElementById('modal-input').style.border = '1px solid red';
+      input.style.border = '1px solid red';
       return;
     }
     overlay.classList.remove('active');
     if (modalCallback) modalCallback(val);
+  };
+  document.getElementById('modal-cancel').onclick = function () {
+    modalCallback = null;
+    overlay.classList.remove('active');
   };
 }
 

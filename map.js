@@ -1,12 +1,12 @@
-import { pushState, pushPlayerLocation, removePlayerLocation, listenToPlayerLocations } from './firebase.js';
+import { mutateState, pushPlayerLocation, removePlayerLocation, listenToPlayerLocations, pushLog } from './firebase.js';
 import { states, challengeTypes, allMarkers, gameState, toKey,
-         displayValue, countActive, MAX_ACTIVE, spawnChallenge,
-         drawChallenge, getMyTeam, baseStates } from './shared.js';
+         displayValue, MAX_HELD, pickUpChallenge, getMyTeam, esc } from './shared.js';
 
 let map;
 let markerCluster;
-let userMarker = null;
-let userCircle = null;
+let userMarker   = null;
+let userCircle   = null;
+let lastPosition = null;
 
 const challengeLayerMarkers = {};
 const playerMarkers = {};
@@ -36,7 +36,7 @@ function makePlayerIcon(color, label) {
           'white-space:nowrap;' +
           'box-shadow:0 1px 4px rgba(0,0,0,0.3);' +
           'font-family:Arial,sans-serif;">' +
-          label +
+          esc(label) +
         '</div>' +
       '</div>',
     iconSize: [60, 36],
@@ -63,6 +63,7 @@ export function initMap() {
   map.locate({ watch: true, enableHighAccuracy: true });
 
   map.on('locationfound', function(e) {
+    lastPosition = e.latlng;
     const radius = e.accuracy / 2;
     if (userMarker) {
       userMarker.setLatLng(e.latlng);
@@ -192,24 +193,27 @@ function handleMarkerClick(location, marker) {
 
   const isUnclaimed     = stop.stateIndex === 0;
   const controllingTeam = stop.stateIndex;
+  const isOwnStop       = !isUnclaimed && myTeam !== null && controllingTeam === myTeam;
 
   let teamOptions = '';
-  if (isUnclaimed) {
+  if (isOwnStop) {
+    teamOptions = '<option value="' + controllingTeam + '" selected>' +
+      esc(tName(controllingTeam)) + '</option>';
+  } else {
     [1, 2, 3].forEach(function(i) {
+      if (!isUnclaimed && i === controllingTeam) return;
       const isRestricted = myTeam !== null && i !== myTeam;
       const dis = isRestricted ? ' disabled' : '';
-      teamOptions += '<option value="' + i + '"' + dis + '>' + tName(i) + '</option>';
+      const sel = myTeam === i ? ' selected' : '';
+      teamOptions += '<option value="' + i + '"' + dis + sel + '>' + esc(tName(i)) + '</option>';
     });
-  } else {
-    teamOptions = '<option value="' + controllingTeam + '" selected>' +
-      tName(controllingTeam) + '</option>';
   }
 
-  const currentValue = Math.max(1, stop.value);
+  // Takeovers must raise the stop's value above its current level
+  const minValue = isUnclaimed ? 1 : stop.value + 1;
   let valueOptions = '';
-  for (let v = currentValue; v <= currentValue + 4; v++) {
-    valueOptions += '<option value="' + v + '"' +
-      (v === stop.value ? ' selected' : '') + '>' + v + '</option>';
+  for (let v = minValue; v <= minValue + 4; v++) {
+    valueOptions += '<option value="' + v + '">' + v + '</option>';
   }
 
   let bankruptHTML = '';
@@ -237,20 +241,20 @@ function handleMarkerClick(location, marker) {
   if (ch) {
     const failedNote = ch.failedBy && ch.failedBy.length > 0
       ? '<div style="color:#e63946;font-size:11px;margin-bottom:4px;">Failed by: ' +
-        ch.failedBy.map(function(i) { return tName(i); }).join(', ') + '</div>'
+        ch.failedBy.map(function(i) { return esc(tName(i)); }).join(', ') + '</div>'
       : '';
     const teamBtns = [1, 2, 3].map(function(ti) {
       const isFailed     = ch.failedBy && ch.failedBy.includes(ti);
       const isRestricted = myTeam !== null && myTeam !== ti;
       const heldCount    = (gs.heldChallenges && gs.heldChallenges[ti] || []).length;
-      const isFull       = heldCount >= 3;
+      const isFull       = heldCount >= MAX_HELD;
       const bg  = ['', '#e63946', '#1d6fd1', '#2a9d3f'][ti];
       const dis = (isFailed || isRestricted || isFull) ? ' disabled' : '';
       const col = (isFailed || isRestricted || isFull) ? '#ccc' : bg;
       return '<button data-claim-team="' + ti + '"' + dis +
         ' style="flex:1;padding:6px 2px;font-size:12px;border:none;border-radius:6px;' +
         'cursor:pointer;color:white;font-weight:bold;background:' + col + ';">' +
-        tName(ti) + '</button>';
+        esc(tName(ti)) + '</button>';
     }).join('');
 
     challengeHTML =
@@ -266,35 +270,50 @@ function handleMarkerClick(location, marker) {
       '</div>';
   }
 
+  // ── Own stop message + claim button style ──────────────────────
+  const ownStopMsg = isOwnStop
+    ? '<div style="font-size:11px;color:#9ca3af;margin-bottom:6px;text-align:center;">' +
+      'This stop is already owned by your team!</div>'
+    : '';
+
+  const claimBtnStyle = isOwnStop
+    ? 'margin-top:4px;width:100%;padding:10px;background:#9ca3af;color:white;' +
+      'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:not-allowed;' +
+      'text-align:center;font-family:inherit;opacity:0.6;'
+    : 'margin-top:4px;width:100%;padding:10px;background:#1d6fd1;color:white;' +
+      'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;' +
+      'text-align:center;font-family:inherit;transition:filter 0.15s;';
+
   const popupContent = document.createElement('div');
   popupContent.className = 'popup-box';
   popupContent.innerHTML =
-    '<strong>' + location.name + '</strong>' +
-    '<div class="popup-sub">Current: ' + tName(stop.stateIndex) +
+    '<strong>' + esc(location.name) + '</strong>' +
+    '<div class="popup-sub">Current: ' + esc(tName(stop.stateIndex)) +
       ' — Value: ' + stop.value + '</div>' +
-    (isUnclaimed ? '<label>Claiming Team</label>' : '<label>Controlling Team</label>') +
+    (isOwnStop ? '<label>Controlling Team</label>' : '<label>Claiming Team</label>') +
     '<select id="team-select">' + teamOptions + '</select>' +
     '<label>New Value</label>' +
     '<select id="value-select">' + valueOptions + '</select>' +
     '<label>Route</label>' +
     '<input id="route-input" type="text" maxlength="5" placeholder="e.g. 5A" ' +
-      'value="' + (stop.route || '') + '" ' +
+      'value="' + esc(stop.route || '') + '" ' +
       'style="width:100%;padding:7px 8px;border:1px solid #e5e7eb;border-radius:8px;' +
       'font-size:13px;font-family:inherit;box-sizing:border-box;outline:none;' +
       'margin-bottom:2px;" />' +
     '<div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">' +
       'Enter the route number for this stop (optional)</div>' +
     '<div class="error-msg" id="error-msg"></div>' +
-    '<button id="apply-btn" style="' +
-      'margin-top:4px;width:100%;padding:10px;background:#1d6fd1;color:white;' +
-      'border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;' +
-      'text-align:center;font-family:inherit;transition:filter 0.15s;">' +
-      '🚌 Claim! 🚌</button>' +
+    ownStopMsg +
+    '<button id="apply-btn"' + (isOwnStop ? ' disabled' : '') + ' style="' + claimBtnStyle + '">' +
+      '🚌 Claim! 🚌' +
+    '</button>' +
     bankruptHTML +
     challengeHTML;
 
-  popupContent.querySelector('#apply-btn').addEventListener('click', function() {
-    const gs2data       = gameState.data;
+  // ── Claim button ───────────────────────────────────────────────
+  popupContent.querySelector('#apply-btn').addEventListener('click', async function() {
+    if (isOwnStop) return;
+
     const selectedIndex = parseInt(popupContent.querySelector('#team-select').value);
     const selectedValue = parseInt(popupContent.querySelector('#value-select').value);
     const routeVal      = popupContent.querySelector('#route-input').value.trim().toUpperCase();
@@ -306,45 +325,78 @@ function handleMarkerClick(location, marker) {
       return;
     }
 
-    const cost      = selectedValue - stop.value;
-    const coinCheck = isUnclaimed ? selectedValue : cost;
+    // The value you set is the full cost, for first claims and takeovers alike
+    const cost = selectedValue;
+    let failReason = '';
 
-    if (coinCheck > 0 && gs2data.coins[selectedIndex] < coinCheck) {
-      errorEl.textContent   = 'Not enough coins!';
+    const committed = await mutateState(gs => {
+      const s = gs.stops && gs.stops[key];
+      if (!s) return;
+      // The popup was built from a snapshot — abort if the stop changed since
+      if (s.stateIndex !== stop.stateIndex || s.value !== stop.value) {
+        failReason = 'This stop just changed — reopen it to see the latest state.';
+        return;
+      }
+      if ((gs.coins[selectedIndex] || 0) < cost) {
+        failReason = 'Not enough coins!';
+        return;
+      }
+      gs.coins[selectedIndex] -= cost;
+      s.stateIndex = selectedIndex;
+      s.value      = selectedValue;
+      s.route      = routeVal;
+
+      if (selectedIndex !== 0 && routeVal !== '') {
+        if (!gs.routeLog) gs.routeLog = { 1: [], 2: [], 3: [] };
+        if (!Array.isArray(gs.routeLog[selectedIndex])) {
+          gs.routeLog[selectedIndex] = [];
+        }
+        if (!gs.routeLog[selectedIndex].includes(routeVal)) {
+          gs.routeLog[selectedIndex].push(routeVal);
+        }
+      }
+      return gs;
+    });
+
+    if (!committed) {
+      errorEl.textContent   = failReason || 'Could not claim — please try again.';
       errorEl.style.display = 'block';
       return;
     }
 
-    const gs2 = JSON.parse(JSON.stringify(gs2data));
-    if (coinCheck > 0) gs2.coins[selectedIndex] -= coinCheck;
-
-    gs2.stops[key].stateIndex = selectedIndex;
-    gs2.stops[key].value      = selectedValue;
-    gs2.stops[key].route      = routeVal;
-
-    if (selectedIndex !== 0 && routeVal !== '') {
-      if (!gs2.routeLog) gs2.routeLog = { 1: [], 2: [], 3: [] };
-      if (!Array.isArray(gs2.routeLog[selectedIndex])) {
-        gs2.routeLog[selectedIndex] = [];
-      }
-      if (!gs2.routeLog[selectedIndex].includes(routeVal)) {
-        gs2.routeLog[selectedIndex].push(routeVal);
-      }
+    // ── Log stop claim / upgrade ───────────────────────────────
+    if (isUnclaimed) {
+      pushLog({
+        timestamp: Date.now(),
+        team:      selectedIndex,
+        type:      'stop',
+        message:   tName(selectedIndex) + ' claimed ' + location.name +
+                   ' for ' + selectedValue + ' coin' + (selectedValue !== 1 ? 's' : ''),
+      });
+    } else {
+      pushLog({
+        timestamp: Date.now(),
+        team:      selectedIndex,
+        type:      'stop',
+        message:   tName(selectedIndex) + ' took control of ' + location.name +
+                   ' at value ' + selectedValue +
+                   ' (spent ' + cost + ' coin' + (cost !== 1 ? 's' : '') + ')',
+      });
     }
 
-    pushState(gs2);
     marker.unbindPopup();
     map.closePopup();
   });
 
+  // ── Bankrupt button ────────────────────────────────────────────
   const bankruptBtn = popupContent.querySelector('#bankrupt-btn');
   if (bankruptBtn) {
-    bankruptBtn.addEventListener('click', function() {
-      const gs2data = gameState.data;
-      const myCoins = (gs2data.coins && gs2data.coins[myTeam]) || 0;
+    bankruptBtn.addEventListener('click', async function() {
+      const myCoins = (gameState.data.coins && gameState.data.coins[myTeam]) || 0;
 
-            const confirmed = window.confirm(
+      const confirmed = window.confirm(
         '💸 Declare Bankruptcy?\n\n' +
+        'You will lose ALL your coins (' + myCoins + ').\n' +
         tName(controllingTeam) + ' will receive ' + stop.value + ' coin(s) — ' +
         'equal to the value of this stop.\n\n' +
         'The stop value and ownership will NOT change.\n\n' +
@@ -353,51 +405,60 @@ function handleMarkerClick(location, marker) {
 
       if (!confirmed) return;
 
-      const gs2 = JSON.parse(JSON.stringify(gs2data));
-            gs2.coins[controllingTeam] = (gs2.coins[controllingTeam] || 0) + stop.value;
-      gs2.coins[myTeam] = Math.max(0, myCoins - stop.value);
+      const committed = await mutateState(gs => {
+        const s = gs.stops && gs.stops[key];
+        if (!s || s.stateIndex !== controllingTeam) return;
+        gs.coins[controllingTeam] = (gs.coins[controllingTeam] || 0) + s.value;
+        gs.coins[myTeam]          = 0;
+        return gs;
+      });
 
+      if (!committed) return;
 
-      pushState(gs2);
+      // ── Log bankruptcy ───────────────────────────────────────
+      pushLog({
+        timestamp: Date.now(),
+        team:      myTeam,
+        type:      'coin',
+        message:   tName(myTeam) + ' declared bankruptcy on ' + location.name +
+                   ' — lost all ' + myCoins + ' coin' + (myCoins !== 1 ? 's' : '') + '; ' +
+                   tName(controllingTeam) + ' received ' + stop.value,
+      });
+
       marker.unbindPopup();
       map.closePopup();
     });
   }
 
+  // ── Challenge claim buttons ────────────────────────────────────
   if (ch) {
     popupContent.querySelectorAll('[data-claim-team]').forEach(function(btn) {
-      btn.addEventListener('click', function() {
+      btn.addEventListener('click', async function() {
         const teamIndex = parseInt(btn.dataset.claimTeam);
-        const gs2 = JSON.parse(JSON.stringify(gameState.data));
-        const reg = gs2.activeChallenges[key];
-        if (!reg) return;
 
-        if (!gs2.heldChallenges[teamIndex]) gs2.heldChallenges[teamIndex] = [];
-        gs2.heldChallenges[teamIndex].push({
-          challengeNumber: reg.challengeNumber,
-          locationName:    reg.locationName,
-          type:            reg.type,
-          coinValue:       reg.coinValue,
-          stealPercent:    reg.stealPercent,
-          failedBy:        [...(reg.failedBy || [])],
-          failCount:       reg.failCount || 0,
-          pickedUpBy:      teamIndex,
+        let picked = null;
+        const committed = await mutateState(gs => {
+          picked = pickUpChallenge(gs, key, teamIndex);
+          return picked ? gs : undefined;
+        });
+        if (!committed || !picked) return;
+
+        // ── Log challenge pickup ─────────────────────────────
+        pushLog({
+          timestamp: Date.now(),
+          team:      teamIndex,
+          type:      'challenge',
+          message:   tName(teamIndex) + ' picked up challenge #' +
+                     (picked.challengeNumber || '?') + ' from ' + picked.locationName,
         });
 
-        if (gs2.stops[key]) gs2.stops[key].challenge = null;
-        delete gs2.activeChallenges[key];
-
-        if (countActive(gs2) < MAX_ACTIVE) {
-          spawnChallenge(gs2, null, drawChallenge(gs2.pool));
-        }
-
-        pushState(gs2);
         marker.unbindPopup();
         map.closePopup();
       });
     });
   }
-  // ── Admin: reset stop (unassigned players only) ────────────────
+
+  // ── Admin: reset stop ──────────────────────────────────────────
   if (getMyTeam() === null) {
     const adminResetHTML =
       '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;">' +
@@ -415,7 +476,6 @@ function handleMarkerClick(location, marker) {
     popupContent.querySelector('#admin-reset-btn').addEventListener('click', function() {
       const teamNames = (gameState.data && gameState.data.teamNames) || {};
 
-      // Build the confirm dialog
       const overlay = document.createElement('div');
       overlay.style.cssText =
         'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;' +
@@ -427,8 +487,8 @@ function handleMarkerClick(location, marker) {
         'box-shadow:0 8px 40px rgba(0,0,0,0.18);font-family:inherit;';
 
       const teamOpts = [0, 1, 2, 3].map(i => {
-        const name = i === 0 ? 'No Control' : (teamNames[i] || baseStates[i].label);
-        return '<option value="' + i + '">' + name + '</option>';
+        const name = i === 0 ? 'No Control' : (teamNames[i] || states[i].label);
+        return '<option value="' + i + '">' + esc(name) + '</option>';
       }).join('');
 
       box.innerHTML =
@@ -459,22 +519,23 @@ function handleMarkerClick(location, marker) {
         document.body.removeChild(overlay);
       });
 
-      box.querySelector('#reset-confirm').addEventListener('click', () => {
+      box.querySelector('#reset-confirm').addEventListener('click', async () => {
         const newTeam  = parseInt(box.querySelector('#reset-team-select').value);
         const newValue = Math.max(0, parseInt(box.querySelector('#reset-value-input').value) || 0);
 
-        const gs2 = JSON.parse(JSON.stringify(gameState.data));
-        gs2.stops[key].stateIndex = newTeam;
-        gs2.stops[key].value      = newValue;
-        gs2.stops[key].route      = '';
-        gs2.stops[key].challenge  = null;
+        await mutateState(gs => {
+          const s = gs.stops && gs.stops[key];
+          if (!s) return;
+          s.stateIndex = newTeam;
+          s.value      = newValue;
+          s.route      = '';
+          s.challenge  = null;
+          if (gs.activeChallenges && gs.activeChallenges[key]) {
+            delete gs.activeChallenges[key];
+          }
+          return gs;
+        });
 
-        // Remove any active challenge on this stop
-        if (gs2.activeChallenges && gs2.activeChallenges[key]) {
-          delete gs2.activeChallenges[key];
-        }
-
-        pushState(gs2);
         document.body.removeChild(overlay);
         marker.unbindPopup();
         map.closePopup();
@@ -490,19 +551,11 @@ function initPlayerLocationSharing() {
 
   function pushIfOnTeam() {
     const team = getMyTeam();
-    if (!team || !map) return;
+    if (!team || !lastPosition) return;
     const gs    = gameState.data;
     const names = (gs && gs.teamNames) || {};
-    const name  = names[team] || baseStates[team].label;
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          pushPlayerLocation(team, pos.coords.latitude, pos.coords.longitude, name);
-        },
-        null,
-        { enableHighAccuracy: true }
-      );
-    }
+    const name  = names[team] || states[team].label;
+    pushPlayerLocation(team, lastPosition.lat, lastPosition.lng, name);
   }
 
   function clearIfNoTeam() {

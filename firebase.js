@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, push, onValue, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { sanitiseForFirebase } from './shared.js';
+import { sanitiseForFirebase, fixArrays } from './shared.js';
 
 // ── FIREBASE CONFIG ───────────────────────────────────────────────
 const firebaseConfig = {
@@ -30,7 +30,6 @@ const authReady = signInAnonymously(auth)
   });
 
 // ── DEVICE ID ─────────────────────────────────────────────────────
-// Stable per browser session — survives page refresh but not tab close
 function getDeviceId() {
   let id = sessionStorage.getItem('deviceId');
   if (!id) {
@@ -41,14 +40,32 @@ function getDeviceId() {
 }
 
 // ── GAME STATE WRITE ──────────────────────────────────────────────
+// Full overwrite — only for creating/resetting the game
 export async function pushState(gs) {
   await authReady;
   const clean = sanitiseForFirebase(gs);
   return set(ref(db, 'gameState'), clean);
 }
 
+// Atomic mutation — runs `mutator` against the server's current state
+// inside a transaction, so concurrent actions from different players
+// merge instead of overwriting each other. The mutator receives the
+// current state and must return it to commit, or return nothing to
+// abort (e.g. a validation check failed against the latest state).
+export async function mutateState(mutator) {
+  await authReady;
+  const result = await runTransaction(ref(db, 'gameState'), (current) => {
+    if (current === null) return undefined;
+    fixArrays(current);
+    const updated = mutator(current);
+    return updated ? sanitiseForFirebase(updated) : undefined;
+  });
+  if (!result.committed) console.warn('⚠️ Game state change was not committed');
+  return result.committed;
+}
+
 // ── GAME STATE READ ───────────────────────────────────────────────
-export function listenToGameState(callback) {
+export function listenToGameState(callback, onError) {
   authReady
     .then(() => {
       onValue(
@@ -59,11 +76,13 @@ export function listenToGameState(callback) {
         },
         (error) => {
           console.error('❌ Failed to read data from Firebase:', error);
+          if (onError) onError(error);
         }
       );
     })
     .catch(e => {
       console.error('❌ Firebase auth not ready, cannot listen:', e);
+      if (onError) onError(e);
     });
 }
 
@@ -90,4 +109,36 @@ export function listenToPlayerLocations(callback) {
       callback(snapshot.exists() ? snapshot.val() : {});
     });
   });
+}
+
+// ── GAME LOG WRITE ────────────────────────────────────────────────
+export async function pushLog(entry) {
+  await authReady;
+  return push(ref(db, 'gameLog'), entry);
+}
+
+export async function clearLog() {
+  await authReady;
+  return set(ref(db, 'gameLog'), null);
+}
+
+// ── GAME LOG READ ─────────────────────────────────────────────────
+// Returns an unsubscribe function so callers can detach the listener
+export function listenToLog(callback) {
+  let unsubscribe = null;
+  let cancelled   = false;
+  authReady.then(() => {
+    if (cancelled) return;
+    unsubscribe = onValue(ref(db, 'gameLog'), snap => {
+      const data    = snap.val();
+      const entries = data
+        ? Object.values(data).sort((a, b) => b.timestamp - a.timestamp)
+        : [];
+      callback(entries);
+    });
+  });
+  return () => {
+    cancelled = true;
+    if (unsubscribe) unsubscribe();
+  };
 }

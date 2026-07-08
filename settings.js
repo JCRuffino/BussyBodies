@@ -1,6 +1,5 @@
-import { pushState } from './firebase.js';
-import { gameState, getMyTeam, setMyTeam, baseStates,
-         drawChallenge, spawnChallenge, allLocations, shuffleArray, toKey } from './shared.js';
+import { mutateState } from './firebase.js';
+import { gameState, getMyTeam, setMyTeam, states } from './shared.js';
 
 export function initSettings(resetCallback) {
 
@@ -15,7 +14,7 @@ export function initSettings(resetCallback) {
     const names  = (gs && gs.teamNames) || {};
     assignBtns.forEach(btn => {
       const t    = parseInt(btn.dataset.team);
-      const name = names[t] || baseStates[t].label;
+      const name = names[t] || states[t].label;
       btn.classList.remove('active-a', 'active-b', 'active-c');
       if (myTeam === t) {
         btn.textContent = 'Leave ' + name;
@@ -26,9 +25,9 @@ export function initSettings(resetCallback) {
     });
     if (myTeam) {
       const name = (gameState.data && gameState.data.teamNames && gameState.data.teamNames[myTeam])
-        || baseStates[myTeam].label;
+        || states[myTeam].label;
       currentLabel.textContent = '✅ You are on ' + name;
-      currentLabel.style.color = baseStates[myTeam].color;
+      currentLabel.style.color = states[myTeam].color;
     } else {
       currentLabel.textContent = 'No team assigned — spectator mode';
       currentLabel.style.color = '#555';
@@ -58,10 +57,11 @@ export function initSettings(resetCallback) {
     saveBtn.addEventListener('click', () => {
       const val = input.value.trim().slice(0, 12);
       if (!val) return;
-      const gs2 = JSON.parse(JSON.stringify(gameState.data));
-      if (!gs2.teamNames) gs2.teamNames = {};
-      gs2.teamNames[t] = val;
-      pushState(gs2);
+      mutateState(gs => {
+        if (!gs.teamNames) gs.teamNames = {};
+        gs.teamNames[t] = val;
+        return gs;
+      });
     });
   });
 
@@ -133,7 +133,7 @@ export function initSettings(resetCallback) {
     [1, 2, 3].forEach(t => {
       const input = document.getElementById('name-input-' + t);
       if (input && !input.matches(':focus')) {
-        input.value = names[t] || baseStates[t].label;
+        input.value = names[t] || states[t].label;
       }
     });
     refreshAssignUI();
