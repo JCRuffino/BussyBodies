@@ -22,6 +22,8 @@ export function initSettings(resetCallback) {
       } else {
         btn.textContent = 'Join ' + name;
       }
+      // No direct switching — you must leave your team before joining another
+      btn.disabled = myTeam !== null && myTeam !== t;
     });
     if (myTeam) {
       const name = (gameState.data && gameState.data.teamNames && gameState.data.teamNames[myTeam])
@@ -37,8 +39,10 @@ export function initSettings(resetCallback) {
 
     assignBtns.forEach(btn => {
     btn.addEventListener('click', () => {
-      const t = parseInt(btn.dataset.team);
-      if (getMyTeam() === t) setMyTeam(null);
+      const t      = parseInt(btn.dataset.team);
+      const myTeam = getMyTeam();
+      if (myTeam === t) setMyTeam(null);
+      else if (myTeam !== null) return;
       else setMyTeam(t);
       refreshAssignUI();
       // Re-render UI so challenge restrictions update immediately

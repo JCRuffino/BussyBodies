@@ -348,7 +348,8 @@
       transition: all 0.15s;
       color: #374151;
     }
-    .team-assign-btn:hover { border-color: #9ca3af; background: #f9fafb; }
+    .team-assign-btn:hover:not(:disabled) { border-color: #9ca3af; background: #f9fafb; }
+    .team-assign-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .team-assign-btn.active-a { background: #e63946; color: white; border-color: #e63946; }
     .team-assign-btn.active-b { background: #1d6fd1; color: white; border-color: #1d6fd1; }
     .team-assign-btn.active-c { background: #2a9d3f; color: white; border-color: #2a9d3f; }
