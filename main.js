@@ -3,7 +3,7 @@ import { initMap, addMarkers, getMap } from './map.js';
 import { initSettings } from './settings.js';
 import { renderAll } from './ui.js';
 import { allLocations, allChallenges, gameState, fixArrays, toKey,
-         spawnChallenge, drawChallenge, buildPool, esc } from './shared.js';
+         spawnChallenge, drawChallenge, buildPool, esc, states } from './shared.js';
 
 console.log('✅ main.js loaded');
 
@@ -79,27 +79,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const typeColors = {
-      stop:      '#1d6fd1',
-      challenge: '#f59e0b',
-      coin:      '#2a9d3f',
-    };
-    const typeLabels = {
-      stop:      '🚏 Stop',
-      challenge: '⚡ Challenge',
-      coin:      '🪙 Coin',
-    };
+    const teamNames = (gameState.data && gameState.data.teamNames) || {};
+
+    // Each entry is badged with the team it belongs to, in that team's colour
+    function teamBadge(t) {
+      if (!t || !states[t]) return { color: '#6b7280', label: 'Admin' };
+      return { color: states[t].color, label: teamNames[t] || states[t].label };
+    }
 
     container.innerHTML = filtered.map(e => {
       const time  = new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const color = typeColors[e.type] || '#6b7280';
-      const label = typeLabels[e.type]  || e.type;
+      const badge = teamBadge(e.team);
       return (
         '<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;' +
         'padding:10px 14px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06);">' +
           '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">' +
             '<span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;' +
-            'font-weight:700;color:white;background:' + color + ';">' + label + '</span>' +
+            'font-weight:700;color:white;background:' + badge.color + ';">' + esc(badge.label) + '</span>' +
             '<span style="font-size:11px;color:#9ca3af;font-weight:600;">' + time + '</span>' +
           '</div>' +
           '<div style="font-size:13px;color:#374151;font-weight:500;">' + esc(e.message) + '</div>' +

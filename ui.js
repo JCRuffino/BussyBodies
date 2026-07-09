@@ -8,12 +8,27 @@ import { allMarkers, states, challengeTypes, gameState, toKey, displayValue,
 export function renderAll(gs) {
   updateLeaderboard(gs);
   updateCoins(gs);
+  updateCoinBadge(gs);
   updateAllMarkers(gs);
   renderActivePanel(gs);
   renderHeldPanel(gs);
   renderRouteBonus(gs);
   renderDistanceBonus(gs);
   renderAdminPanel(gs);
+}
+
+// Big coin on the map screen showing your own team's balance
+function updateCoinBadge(gs) {
+  const badge = document.getElementById('coin-badge');
+  if (!badge) return;
+  const team = getMyTeam();
+  if (!team) {
+    badge.classList.remove('visible');
+    return;
+  }
+  badge.textContent = (gs.coins && gs.coins[team]) || 0;
+  badge.style.borderColor = states[team].color;
+  badge.classList.add('visible');
 }
 function updateLeaderboard(gs) {
   const names  = (gs && gs.teamNames) || {};
@@ -68,6 +83,16 @@ function updateLeaderboard(gs) {
         '<div class="lb-value" id="count-' + i + '">' + counts[i] + bonusHTML + '</div>';
       lbEl.appendChild(row);
     });
+
+    const unclaimedRow = document.createElement('div');
+    unclaimedRow.className = 'lb-row';
+    unclaimedRow.innerHTML =
+      '<div class="lb-left">' +
+        '<div class="lb-dot" style="background:' + states[0].color + '"></div>' +
+        '<span style="color:#6b7280;">Unclaimed</span>' +
+      '</div>' +
+      '<div class="lb-value" style="color:#9ca3af;">' + counts[0] + '</div>';
+    lbEl.appendChild(unclaimedRow);
   } else {
     // Fallback: update existing elements if no leaderboard-rows container
     [1, 2, 3].forEach(i => {

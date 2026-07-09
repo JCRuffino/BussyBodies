@@ -124,6 +124,27 @@
     #screen-leaderboard { padding: 14px; background: #f0f2f5; }
     #screen-settings { padding: 0; background: #f0f2f5; }
 
+    /* ── COIN BADGE (map screen) ────────────────────────────────── */
+    #coin-badge {
+      position: absolute;
+      bottom: 16px; left: 14px;
+      z-index: 1000;
+      width: 72px; height: 72px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 30%, #ffe08a, #f4b400 62%, #c98a00);
+      border: 4px solid #b8860b;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 22px;
+      color: #7a5200;
+      text-shadow: 0 1px 0 rgba(255,255,255,0.45);
+      pointer-events: none;
+    }
+    #coin-badge.visible { display: flex; }
+
     /* ── SYNC STATUS ────────────────────────────────────────────── */
     #sync-status {
       position: fixed;
@@ -404,6 +425,7 @@
   <!-- MAP -->
   <div id="screen-map" class="screen active">
     <div id="map"></div>
+    <div id="coin-badge"></div>
   </div>
 
   <!-- CHALLENGES -->

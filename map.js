@@ -56,7 +56,8 @@ export function initMap() {
     disableClusteringAtZoom: 16,
     maxClusterRadius: 60,
     spiderfyOnMaxZoom: true,
-    showCoverageOnHover: false
+    showCoverageOnHover: false,
+    iconCreateFunction: makeClusterIcon
   });
   map.addLayer(markerCluster);
 
@@ -83,6 +84,42 @@ export function initMap() {
 
 export function getMap() {
   return map;
+}
+
+// Cluster icon with an outer ring split proportionally by the team
+// ownership of the stops inside (grey = unclaimed)
+function makeClusterIcon(cluster) {
+  const children = cluster.getAllChildMarkers();
+  const counts = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  children.forEach(function(m) {
+    const t = m.options._teamIndex || 0;
+    counts[t] = (counts[t] || 0) + 1;
+  });
+
+  const total = children.length;
+  let acc = 0;
+  const segments = [];
+  [1, 2, 3, 0].forEach(function(t) {
+    if (!counts[t]) return;
+    const from = (acc / total) * 360;
+    acc += counts[t];
+    const to = (acc / total) * 360;
+    segments.push(teamColors[t] + ' ' + from + 'deg ' + to + 'deg');
+  });
+
+  const html =
+    '<div style="width:44px;height:44px;border-radius:50%;' +
+      'background:conic-gradient(' + segments.join(',') + ');' +
+      'display:flex;align-items:center;justify-content:center;' +
+      'box-shadow:0 2px 6px rgba(0,0,0,0.35);">' +
+      '<div style="width:32px;height:32px;border-radius:50%;background:white;' +
+        'display:flex;align-items:center;justify-content:center;' +
+        'font-weight:bold;font-size:13px;font-family:Arial,sans-serif;color:#374151;">' +
+        total +
+      '</div>' +
+    '</div>';
+
+  return L.divIcon({ className: '', html: html, iconSize: [44, 44], iconAnchor: [22, 22] });
 }
 
 export function addMarkers(locations) {
@@ -328,6 +365,7 @@ function handleMarkerClick(location, marker) {
     // The value you set is the full cost, for first claims and takeovers alike
     const cost = selectedValue;
     let failReason = '';
+    let newBalance = 0;
 
     const committed = await mutateState(gs => {
       const s = gs.stops && gs.stops[key];
@@ -342,6 +380,7 @@ function handleMarkerClick(location, marker) {
         return;
       }
       gs.coins[selectedIndex] -= cost;
+      newBalance = gs.coins[selectedIndex];
       s.stateIndex = selectedIndex;
       s.value      = selectedValue;
       s.route      = routeVal;
@@ -371,7 +410,8 @@ function handleMarkerClick(location, marker) {
         team:      selectedIndex,
         type:      'stop',
         message:   tName(selectedIndex) + ' claimed ' + location.name +
-                   ' for ' + selectedValue + ' coin' + (selectedValue !== 1 ? 's' : ''),
+                   ' for ' + selectedValue + ' coin' + (selectedValue !== 1 ? 's' : '') +
+                   ' (' + newBalance + ' coins left)',
       });
     } else {
       pushLog({
@@ -380,7 +420,8 @@ function handleMarkerClick(location, marker) {
         type:      'stop',
         message:   tName(selectedIndex) + ' took control of ' + location.name +
                    ' at value ' + selectedValue +
-                   ' (spent ' + cost + ' coin' + (cost !== 1 ? 's' : '') + ')',
+                   ' (spent ' + cost + ' coin' + (cost !== 1 ? 's' : '') +
+                   ', ' + newBalance + ' left)',
       });
     }
 
