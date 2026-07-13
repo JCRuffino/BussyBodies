@@ -598,6 +598,10 @@ function handleMarkerClick(location, marker) {
     });
   }
 
+  // Unbind first: rebinding on an already-bound marker leaves Leaflet's
+  // internal click-toggle armed, which instantly re-closes the popup on
+  // every tap after the popup has once been dismissed without an action
+  marker.unbindPopup();
   marker.bindPopup(popupContent).openPopup();
 }
 
