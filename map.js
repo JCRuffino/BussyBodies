@@ -1,7 +1,8 @@
 import { mutateState, pushPlayerLocation, removePlayerLocation, listenToPlayerLocations, pushLog } from './firebase.js';
 import { states, challengeTypes, allMarkers, gameState, toKey,
          displayValue, MAX_HELD, pickUpChallenge, getMyTeam, esc,
-         gameOverGuard, challengeDescription, TOAST_MIN_STOP_VALUE } from './shared.js';
+         gameOverGuard, challengeDescription, TOAST_MIN_STOP_VALUE,
+         normalizeRoute } from './shared.js';
 
 let map;
 let markerCluster;
@@ -372,7 +373,7 @@ function handleMarkerClick(location, marker) {
 
     const selectedIndex = parseInt(popupContent.querySelector('#team-select').value);
     const selectedValue = parseInt(popupContent.querySelector('#value-select').value);
-    const routeVal      = popupContent.querySelector('#route-input').value.trim().toUpperCase();
+    const routeVal      = normalizeRoute(popupContent.querySelector('#route-input').value);
     const errorEl       = popupContent.querySelector('#error-msg');
 
     if (myTeam !== null && selectedIndex !== myTeam) {

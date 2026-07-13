@@ -212,19 +212,29 @@ export function sanitiseForFirebase(obj) {
   }));
 }
 // ── ROUTE BONUS ───────────────────────────────────────────────────
+// Canonical route form so "5a", " 5A", "5 A", and "05A" all count as
+// the same route for the bonus
+export function normalizeRoute(r) {
+  return String(r || '').toUpperCase().replace(/\s+/g, '').replace(/^0+(?=\d)/, '');
+}
+
 // Returns a map of teamIndex → Set of unique route values
 export function getTeamRoutes(gs) {
   const routes = { 1: new Set(), 2: new Set(), 3: new Set() };
   Object.values(gs.stops || {}).forEach(stop => {
-    if (stop.stateIndex && stop.route && stop.route.trim() !== '') {
+    const r = normalizeRoute(stop.route);
+    if (stop.stateIndex && r) {
       const t = stop.stateIndex;
-      if (routes[t]) routes[t].add(stop.route.trim().toUpperCase());
+      if (routes[t]) routes[t].add(r);
     }
   });
   // Merge in routeLog (historical routes, not just currently held stops)
   const log = gs.routeLog || {};
   [1, 2, 3].forEach(t => {
-    (log[t] || []).forEach(r => routes[t].add(r));
+    (log[t] || []).forEach(r => {
+      const n = normalizeRoute(r);
+      if (n) routes[t].add(n);
+    });
   });
   return routes;
 }
