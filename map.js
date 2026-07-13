@@ -24,7 +24,8 @@ function makePlayerIcon(color, label) {
     className: '',
     html:
       '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
-        '<div style="' +
+        '<div class="player-dot" style="' +
+          '--pc:' + color + ';' +
           'width:18px;height:18px;border-radius:50%;' +
           'background:' + color + ';' +
           'border:2px solid white;' +
@@ -156,8 +157,7 @@ function makeIcon(stateIndex, value) {
   const color   = states[stateIndex].color;
   const claimed = stateIndex > 0;
   const html =
-    '<div class="stop-dot" style="' +
-      '--pc:' + color + ';' +
+    '<div style="' +
       'width:28px;height:28px;' +
       'background:' + (claimed ? color : 'white') + ';' +
       'border:3px solid ' + (claimed ? 'white' : color) + ';' +
