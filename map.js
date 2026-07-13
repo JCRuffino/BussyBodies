@@ -152,17 +152,26 @@ export function addMarkers(locations) {
 }
 
 // Claimed stops are solid team colour with white text; unclaimed stay
-// white with a grey outline
+// white with a grey outline. One growth ring per full 10 coins of
+// value, alternating team colour/white — a permanent fortification look
 function makeIcon(stateIndex, value) {
   const color   = states[stateIndex].color;
   const claimed = stateIndex > 0;
+
+  const ringCount = Math.floor((value || 0) / 10);
+  const shadows = [];
+  for (let i = 1; i <= ringCount; i++) {
+    shadows.push('0 0 0 ' + (i * 3) + 'px ' + (i % 2 === 1 ? color : 'white'));
+  }
+  shadows.push('0 2px 5px rgba(0,0,0,0.35)');
+
   const html =
     '<div style="' +
       'width:28px;height:28px;' +
       'background:' + (claimed ? color : 'white') + ';' +
       'border:3px solid ' + (claimed ? 'white' : color) + ';' +
       'border-radius:50%;' +
-      'box-shadow:0 2px 5px rgba(0,0,0,0.35);' +
+      'box-shadow:' + shadows.join(',') + ';' +
       'display:flex;align-items:center;justify-content:center;' +
       'color:' + (claimed ? 'white' : color) + ';' +
       'font-weight:bold;font-size:11px;' +
