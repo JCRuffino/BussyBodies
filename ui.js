@@ -4,7 +4,7 @@ import { allMarkers, states, challengeTypes, gameState, toKey, displayValue,
          resolveSteal, showVariableModal, getMyTeam,
          getTeamRoutes, getTeamMaxDistances, formatDistance,
          allLocations, allChallenges, esc,
-         gameOverGuard, challengeDescription, TOAST_MIN_REWARD } from './shared.js';
+         gameOverGuard, challengeDescription } from './shared.js';
 
 export function renderAll(gs) {
   updateLeaderboard(gs);
@@ -563,7 +563,7 @@ function renderHeldPanel(gs) {
             timestamp: Date.now(),
             team:      teamIndex,
             type:      'challenge',
-            big:       realCh.type !== 'dollar' && amount >= TOAST_MIN_REWARD,
+            big:       realCh.type !== 'dollar',
             message:   tName(teamIndex) + ' completed challenge #' + (realCh.challengeNumber || '?') +
                        ' from ' + realCh.locationName +
                        (realCh.type === 'dollar' ? ' (steal)' : ' (+' + amount + ' coins)'),

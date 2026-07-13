@@ -1,9 +1,8 @@
 export const MAX_ACTIVE = 6;
 export const MAX_HELD   = 3;
 
-// Toast thresholds: challenge rewards at/above TOAST_MIN_REWARD and stop
-// claims at/above TOAST_MIN_STOP_VALUE pop up on everyone's screen
-export const TOAST_MIN_REWARD     = 40;
+// Stop claims at/above this value pop up as a toast on everyone's screen
+// (every non-steal challenge completion toasts regardless of reward)
 export const TOAST_MIN_STOP_VALUE = 5;
 
 export const states = [
