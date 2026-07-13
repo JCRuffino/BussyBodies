@@ -10,12 +10,30 @@ export function renderAll(gs) {
   updateLeaderboard(gs);
   updateCoins(gs);
   updateCoinBadge(gs);
+  updateMapScoreboard(gs);
   updateAllMarkers(gs);
   renderActivePanel(gs);
   renderHeldPanel(gs);
   renderRouteBonus(gs);
   renderDistanceBonus(gs);
   renderAdminPanel(gs);
+}
+
+// Mini scoreboard on the map: a dot and stop count per team
+function updateMapScoreboard(gs) {
+  const el = document.getElementById('map-scoreboard');
+  if (!el) return;
+  const counts = [0, 0, 0, 0];
+  Object.values(gs.stops || {}).forEach(s => {
+    counts[s.stateIndex] = (counts[s.stateIndex] || 0) + 1;
+  });
+  el.innerHTML = [1, 2, 3].map(t =>
+    '<span style="display:inline-flex;align-items:center;gap:4px;">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' +
+        states[t].color + ';display:inline-block;"></span>' +
+      counts[t] +
+    '</span>'
+  ).join('');
 }
 
 // Big coin on the map screen showing your own team's balance

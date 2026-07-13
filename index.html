@@ -124,6 +124,33 @@
     #screen-leaderboard { padding: 14px; background: #f0f2f5; }
     #screen-settings { padding: 0; background: #f0f2f5; }
 
+    /* ── MAP SCOREBOARD ─────────────────────────────────────────── */
+    #map-scoreboard {
+      position: absolute;
+      bottom: 28px; right: 10px;
+      z-index: 1000;
+      background: white;
+      border-radius: 20px;
+      padding: 6px 12px;
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #111;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+
+    /* ── CHALLENGE BADGE PULSE ──────────────────────────────────── */
+    .challenge-badge {
+      animation: challenge-pulse 1.8s ease-out infinite;
+    }
+    @keyframes challenge-pulse {
+      0%   { box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 0 0 var(--pc); }
+      70%  { box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 0 10px transparent; }
+      100% { box-shadow: 0 2px 5px rgba(0,0,0,0.4), 0 0 0 0 transparent; }
+    }
+
     /* ── COIN BADGE (map screen) ────────────────────────────────── */
     #coin-badge {
       position: absolute;
@@ -473,6 +500,7 @@
   <div id="screen-map" class="screen active">
     <div id="map"></div>
     <div id="coin-badge"></div>
+    <div id="map-scoreboard"></div>
   </div>
 
   <!-- CHALLENGES -->

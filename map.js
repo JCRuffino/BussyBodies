@@ -130,7 +130,7 @@ export function addMarkers(locations) {
     location.challenge  = null;
 
     const marker = L.marker([location.lat, location.lng], {
-      icon: makeIcon(states[0].color, 0),
+      icon: makeIcon(0, 0),
       _teamIndex: 0
     });
 
@@ -138,10 +138,7 @@ export function addMarkers(locations) {
 
     function refreshIcon() {
       marker.options._teamIndex = location.stateIndex;
-      marker.setIcon(makeIcon(
-        states[location.stateIndex].color,
-        location.value
-      ));
+      marker.setIcon(makeIcon(location.stateIndex, location.value));
       markerCluster.refreshClusters(marker);
       refreshChallengeIcon(location);
     }
@@ -153,16 +150,20 @@ export function addMarkers(locations) {
   });
 }
 
-function makeIcon(color, value) {
+// Claimed stops are solid team colour with white text; unclaimed stay
+// white with a grey outline
+function makeIcon(stateIndex, value) {
+  const color   = states[stateIndex].color;
+  const claimed = stateIndex > 0;
   const html =
     '<div style="' +
       'width:28px;height:28px;' +
-      'background:white;' +
-      'border:3px solid ' + color + ';' +
+      'background:' + (claimed ? color : 'white') + ';' +
+      'border:3px solid ' + (claimed ? 'white' : color) + ';' +
       'border-radius:50%;' +
       'box-shadow:0 2px 5px rgba(0,0,0,0.35);' +
       'display:flex;align-items:center;justify-content:center;' +
-      'color:' + color + ';' +
+      'color:' + (claimed ? 'white' : color) + ';' +
       'font-weight:bold;font-size:11px;' +
       'font-family:Arial,sans-serif;' +
     '">' + value + '</div>';
@@ -191,18 +192,18 @@ function refreshChallengeIcon(location) {
   const challengeIcon = L.divIcon({
     className: '',
     html:
-      '<div style="' +
-        'width:22px;height:22px;' +
+      '<div class="challenge-badge" style="' +
+        '--pc:' + ct.color + ';' +
+        'width:26px;height:26px;' +
         'background:' + ct.color + ';' +
         'border:2px solid white;' +
         'border-radius:50%;' +
-        'box-shadow:0 2px 5px rgba(0,0,0,0.4);' +
         'display:flex;align-items:center;justify-content:center;' +
-        'color:white;font-weight:bold;font-size:12px;' +
+        'color:white;font-weight:bold;font-size:13px;' +
         'font-family:Arial,sans-serif;' +
       '">' + ct.symbol + '</div>',
-    iconSize: [22, 22],
-    iconAnchor: [-6, 22],
+    iconSize: [26, 26],
+    iconAnchor: [-6, 24],
   });
 
   const challengeMarker = L.marker(
