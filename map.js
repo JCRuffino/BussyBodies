@@ -156,7 +156,8 @@ function makeIcon(stateIndex, value) {
   const color   = states[stateIndex].color;
   const claimed = stateIndex > 0;
   const html =
-    '<div style="' +
+    '<div class="stop-dot" style="' +
+      '--pc:' + color + ';' +
       'width:28px;height:28px;' +
       'background:' + (claimed ? color : 'white') + ';' +
       'border:3px solid ' + (claimed ? 'white' : color) + ';' +
