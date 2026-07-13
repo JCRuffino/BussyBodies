@@ -290,6 +290,10 @@ export function showVariableModal(teamIndex, failCount, callback) {
   document.getElementById('modal-title').textContent = states[teamIndex].label + ' — Variable Challenge Complete';
   input.value = '';
   input.style.border = '';
+  // maxlength is ignored on number inputs, so trim to 3 digits manually
+  input.oninput = function () {
+    if (this.value.length > 3) this.value = this.value.slice(0, 3);
+  };
   const note = document.getElementById('modal-note');
   if (failCount > 0) {
     note.innerHTML = '⚠️ Previously failed <strong>' + failCount + '</strong> time(s). Add <strong>' + (failCount * 10) + ' extra coins</strong>.';
