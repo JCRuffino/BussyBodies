@@ -3,7 +3,8 @@ import { allMarkers, states, challengeTypes, gameState, toKey, displayValue,
          MAX_HELD, pickUpChallenge, spawnChallenge, pickRandomStopForFailed,
          resolveSteal, showVariableModal, getMyTeam,
          getTeamRoutes, getTeamMaxDistances, formatDistance,
-         allLocations, allChallenges, esc } from './shared.js';
+         allLocations, allChallenges, esc,
+         gameOverGuard, challengeDescription, TOAST_MIN_REWARD } from './shared.js';
 
 export function renderAll(gs) {
   updateLeaderboard(gs);
@@ -405,6 +406,8 @@ function renderActivePanel(gs) {
       ? '<span class="card-badge" style="background:#374151">#' + ch.challengeNumber + '</span>'
       : '';
 
+    const chDesc = challengeDescription(ch.challengeNumber);
+
     const card = document.createElement('div');
     card.className = 'challenge-card';
     card.innerHTML =
@@ -415,11 +418,16 @@ function renderActivePanel(gs) {
         numBadge +
         esc(ch.locationName) +
       '</div>' +
+      (chDesc
+        ? '<div style="font-size:11px;color:#6b7280;font-style:italic;margin:2px 0 6px;">' +
+          esc(chDesc) + '</div>'
+        : '') +
       '<div class="card-reward">🪙 ' + displayValue(ch) + failedNote + '</div>' +
       '<div class="card-buttons">' + teamButtons + '</div>';
 
     card.querySelectorAll('.card-buttons button:not([disabled])').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (gameOverGuard(gameState.data)) return;
         const teamIndex = parseInt(btn.dataset.team);
         const k         = btn.dataset.key;
 
@@ -473,16 +481,39 @@ function renderHeldPanel(gs) {
     label.innerHTML = dot + ' ' + esc(teamName);
     heldList.appendChild(label);
 
+    const myTeam = getMyTeam();
+    const isMine = myTeam === null || myTeam === teamIndex;
+
+    // Rival teams' challenges show as compact summary chips —
+    // number, type, and reward only
+    if (!isMine) {
+      const chipWrap = document.createElement('div');
+      chipWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px;';
+      teamHeld.forEach((ch) => {
+        const ct   = challengeTypes[ch.type];
+        const chip = document.createElement('span');
+        chip.style.cssText =
+          'display:inline-flex;align-items:center;gap:5px;background:white;' +
+          'border:1px solid #e5e7eb;border-radius:20px;padding:4px 10px;' +
+          'font-size:12px;font-weight:600;color:#374151;box-shadow:0 1px 3px rgba(0,0,0,0.05);';
+        chip.innerHTML =
+          '<span class="card-badge" style="background:' + ct.color + '">' + ct.symbol + '</span>' +
+          (ch.challengeNumber ? '#' + ch.challengeNumber + ' · ' : '') +
+          '🪙 ' + displayValue(ch);
+        chipWrap.appendChild(chip);
+      });
+      heldList.appendChild(chipWrap);
+      return;
+    }
+
     teamHeld.forEach((ch) => {
-      const ct       = challengeTypes[ch.type];
-      const myTeam   = getMyTeam();
-      const canAct   = myTeam === null || myTeam === teamIndex;
-      const dis      = canAct ? '' : ' disabled';
-      const cursor   = canAct ? '' : 'cursor:not-allowed;';
+      const ct = challengeTypes[ch.type];
 
       const numBadge = ch.challengeNumber
         ? '<span class="card-badge" style="background:#374151">#' + ch.challengeNumber + '</span>'
         : '';
+
+      const chDesc = challengeDescription(ch.challengeNumber);
 
       const hCard = document.createElement('div');
       hCard.className = 'held-card';
@@ -492,10 +523,14 @@ function renderHeldPanel(gs) {
           numBadge +
           esc(ch.locationName) +
         '</div>' +
+        (chDesc
+          ? '<div style="font-size:11px;color:#6b7280;font-style:italic;margin:2px 0 6px;">' +
+            esc(chDesc) + '</div>'
+          : '') +
         '<div class="held-reward">🪙 ' + displayValue(ch) + '</div>' +
         '<div class="held-buttons">' +
-          '<button class="btn btn-amber"' + dis + ' style="' + cursor + '">✅ Complete</button>' +
-          '<button class="btn btn-neutral"' + dis + ' style="' + cursor + '">❌ Failed</button>' +
+          '<button class="btn btn-amber">✅ Complete</button>' +
+          '<button class="btn btn-neutral">❌ Failed</button>' +
         '</div>';
 
       function findIdx(arr) {
@@ -506,6 +541,7 @@ function renderHeldPanel(gs) {
       }
 
       hCard.querySelector('.btn-amber').addEventListener('click', () => {
+        if (gameOverGuard(gameState.data)) return;
         const doComplete = async (amount) => {
           let realCh = null;
           const committed = await mutateState(gs2 => {
@@ -527,6 +563,7 @@ function renderHeldPanel(gs) {
             timestamp: Date.now(),
             team:      teamIndex,
             type:      'challenge',
+            big:       realCh.type !== 'dollar' && amount >= TOAST_MIN_REWARD,
             message:   tName(teamIndex) + ' completed challenge #' + (realCh.challengeNumber || '?') +
                        ' from ' + realCh.locationName +
                        (realCh.type === 'dollar' ? ' (steal)' : ' (+' + amount + ' coins)'),
@@ -541,6 +578,7 @@ function renderHeldPanel(gs) {
       });
 
       hCard.querySelector('.btn-neutral').addEventListener('click', async () => {
+        if (gameOverGuard(gameState.data)) return;
         let failedCh = null;
         const committed = await mutateState(gs2 => {
           const arr = gs2.heldChallenges[teamIndex];

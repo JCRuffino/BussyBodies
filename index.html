@@ -145,6 +145,50 @@
     }
     #coin-badge.visible { display: flex; }
 
+    /* ── COUNTDOWN PILL ─────────────────────────────────────────── */
+    #countdown-pill {
+      position: fixed;
+      top: 10px; left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      z-index: 9100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      display: none;
+    }
+    #countdown-pill.ended { background: #e63946; }
+
+    /* ── TOASTS ─────────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      top: 48px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 9500;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: min(92vw, 360px);
+      pointer-events: none;
+    }
+    .toast {
+      background: white;
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      font-size: 13px;
+      font-weight: 600;
+      color: #111;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
     /* ── SYNC STATUS ────────────────────────────────────────────── */
     #sync-status {
       position: fixed;
@@ -422,6 +466,8 @@
 <body>
 
   <div id="sync-status">🔄 Connecting...</div>
+  <div id="countdown-pill"></div>
+  <div id="toast-container"></div>
 
   <!-- MAP -->
   <div id="screen-map" class="screen active">
@@ -505,6 +551,24 @@
           <input type="text" id="name-input-3" maxlength="12" placeholder="Team C" />
           <button class="btn btn-primary btn-sm btn-save-name" data-team="3">Apply</button>
         </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">⏱️ Game Timer</div>
+        <div class="settings-card-desc">Set a countdown for the game. When it hits zero the game ends — no more claims or challenge submissions.</div>
+        <div id="timer-status" style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">No countdown set.</div>
+        <div id="timer-start-row" style="display:flex;gap:8px;">
+          <input id="timer-minutes" type="number" min="1" placeholder="Minutes"
+            style="flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;font-family:inherit;outline:none;" />
+          <button id="timer-start-btn" class="btn btn-primary">Start</button>
+        </div>
+        <div id="timer-adjust-row" style="display:none;flex-wrap:wrap;gap:6px;margin-top:8px;">
+          <button id="timer-plus-btn" class="btn btn-ghost btn-sm">＋5 min</button>
+          <button id="timer-minus-btn" class="btn btn-ghost btn-sm">－5 min</button>
+          <button id="timer-endnow-btn" class="btn btn-amber btn-sm">End now</button>
+          <button id="timer-cancel-btn" class="btn btn-danger btn-sm">Cancel</button>
+        </div>
+        <div style="font-size:11px;color:#9ca3af;margin-top:8px;">Only an admin (no team assigned) can adjust or cancel a running countdown.</div>
       </div>
 
       <div class="settings-card settings-card-danger">
@@ -674,7 +738,7 @@
 
     <div id="history-list">
       <span style="font-size:13px;color:#9ca3af;font-style:italic;">
-        Open this tab to load history.
+        No entries yet.
       </span>
     </div>
 

@@ -1,4 +1,4 @@
-import { mutateState } from './firebase.js';
+import { mutateState, pushLog } from './firebase.js';
 import { gameState, getMyTeam, setMyTeam, states } from './shared.js';
 
 export function initSettings(resetCallback) {
@@ -35,6 +35,7 @@ export function initSettings(resetCallback) {
       currentLabel.style.color = '#555';
     }
     refreshResetBtn();
+    refreshTimerUI();
   }
 
     assignBtns.forEach(btn => {
@@ -66,6 +67,105 @@ export function initSettings(resetCallback) {
         gs.teamNames[t] = val;
         return gs;
       });
+    });
+  });
+
+  // ── Game timer ────────────────────────────────────────────────────
+  const timerStatus    = document.getElementById('timer-status');
+  const timerMinutes   = document.getElementById('timer-minutes');
+  const timerStartRow  = document.getElementById('timer-start-row');
+  const timerAdjustRow = document.getElementById('timer-adjust-row');
+
+  function refreshTimerUI() {
+    const gs      = gameState.data;
+    const t       = gs && gs.timer;
+    const isAdmin = getMyTeam() === null;
+    const running = t && t.endsAt && Date.now() < t.endsAt;
+    const ended   = t && t.endsAt && Date.now() >= t.endsAt;
+
+    if (running) {
+      timerStatus.textContent = '⏱️ Countdown running — ends at ' +
+        new Date(t.endsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      timerStartRow.style.display  = 'none';
+      timerAdjustRow.style.display = isAdmin ? 'flex' : 'none';
+    } else if (ended) {
+      timerStatus.textContent = '🏁 The game has ended.';
+      // Only an admin can start a new countdown once a game has ended
+      timerStartRow.style.display  = isAdmin ? 'flex' : 'none';
+      timerAdjustRow.style.display = isAdmin ? 'flex' : 'none';
+    } else {
+      timerStatus.textContent = 'No countdown set.';
+      timerStartRow.style.display  = 'flex';
+      timerAdjustRow.style.display = 'none';
+    }
+  }
+
+  document.getElementById('timer-start-btn').addEventListener('click', () => {
+    const mins = parseInt(timerMinutes.value);
+    if (isNaN(mins) || mins < 1) return;
+    mutateState(gs => {
+      if (gs.timer && gs.timer.endsAt && Date.now() < gs.timer.endsAt) return; // already running
+      gs.timer = { endsAt: Date.now() + mins * 60000 };
+      return gs;
+    }).then(committed => {
+      if (!committed) return;
+      pushLog({
+        timestamp: Date.now(),
+        team:      0,
+        type:      'timer',
+        message:   '⏱️ Countdown started — ' + mins + ' minute' + (mins !== 1 ? 's' : '') + ' on the clock',
+      });
+      timerMinutes.value = '';
+    });
+  });
+
+  function adjustTimer(deltaMs, label) {
+    if (getMyTeam() !== null) return;
+    mutateState(gs => {
+      if (!gs.timer || !gs.timer.endsAt) return;
+      gs.timer.endsAt += deltaMs;
+      // Extending a finished game back past "now" un-ends it, so the
+      // GAME OVER entry can fire again when it actually ends
+      if (gs.timer.endsAt > Date.now()) delete gs.timer.endLogged;
+      return gs;
+    }).then(committed => {
+      if (committed) {
+        pushLog({
+          timestamp: Date.now(),
+          team:      0,
+          type:      'timer',
+          message:   '⏱️ Admin adjusted the countdown (' + label + ')',
+        });
+      }
+    });
+  }
+  document.getElementById('timer-plus-btn').addEventListener('click',  () => adjustTimer(5 * 60000, '+5 minutes'));
+  document.getElementById('timer-minus-btn').addEventListener('click', () => adjustTimer(-5 * 60000, '−5 minutes'));
+
+  document.getElementById('timer-endnow-btn').addEventListener('click', () => {
+    if (getMyTeam() !== null) return;
+    mutateState(gs => {
+      if (!gs.timer || !gs.timer.endsAt || Date.now() >= gs.timer.endsAt) return;
+      gs.timer.endsAt = Date.now();
+      return gs;
+    });
+  });
+
+  document.getElementById('timer-cancel-btn').addEventListener('click', () => {
+    if (getMyTeam() !== null) return;
+    mutateState(gs => {
+      if (!gs.timer) return;
+      gs.timer = null;
+      return gs;
+    }).then(committed => {
+      if (committed) {
+        pushLog({
+          timestamp: Date.now(),
+          team:      0,
+          type:      'timer',
+          message:   '⏱️ Countdown cancelled',
+        });
+      }
     });
   });
 

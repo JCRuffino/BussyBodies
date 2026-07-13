@@ -1,6 +1,11 @@
 export const MAX_ACTIVE = 6;
 export const MAX_HELD   = 3;
 
+// Toast thresholds: challenge rewards at/above TOAST_MIN_REWARD and stop
+// claims at/above TOAST_MIN_STOP_VALUE pop up on everyone's screen
+export const TOAST_MIN_REWARD     = 40;
+export const TOAST_MIN_STOP_VALUE = 5;
+
 export const states = [
   { label: "No Control", color: "#808080" },
   { label: "Team A",     color: "#e63946" },
@@ -42,6 +47,33 @@ export const gameState = { data:null};
 
 export function toKey(name) {
   return name.replace(/[.#$\/\[\]]/g, '_');
+}
+
+// ── GAME TIMER ────────────────────────────────────────────────────
+export function isGameOver(gs) {
+  return !!(gs && gs.timer && gs.timer.endsAt && Date.now() >= gs.timer.endsAt);
+}
+
+// Returns true (and tells the player) when the game is over — call at the
+// top of any claim/challenge action to soft-block it after the countdown
+export function gameOverGuard(gs) {
+  if (!isGameOver(gs)) return false;
+  window.alert('⏱️ The game has ended!\n\nNo more stops can be claimed or challenges submitted.\nCheck the leaderboard for the final standings.');
+  return true;
+}
+
+export function formatCountdown(ms) {
+  const s   = Math.max(0, Math.floor(ms / 1000));
+  const h   = Math.floor(s / 3600);
+  const m   = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return h > 0 ? h + ':' + pad(m) + ':' + pad(sec) : m + ':' + pad(sec);
+}
+
+export function challengeDescription(challengeNumber) {
+  const t = allChallenges.find(c => c.id === challengeNumber);
+  return t ? (t.description || '') : '';
 }
 
 export function displayValue(ch) {

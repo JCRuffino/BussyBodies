@@ -1,6 +1,7 @@
 import { mutateState, pushPlayerLocation, removePlayerLocation, listenToPlayerLocations, pushLog } from './firebase.js';
 import { states, challengeTypes, allMarkers, gameState, toKey,
-         displayValue, MAX_HELD, pickUpChallenge, getMyTeam, esc } from './shared.js';
+         displayValue, MAX_HELD, pickUpChallenge, getMyTeam, esc,
+         gameOverGuard, challengeDescription, TOAST_MIN_STOP_VALUE } from './shared.js';
 
 let map;
 let markerCluster;
@@ -294,6 +295,8 @@ function handleMarkerClick(location, marker) {
         esc(tName(ti)) + '</button>';
     }).join('');
 
+    const chDesc = challengeDescription(ch.challengeNumber);
+
     challengeHTML =
       '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #eee;">' +
       '<div style="font-weight:bold;font-size:13px;margin-bottom:4px;">' +
@@ -301,6 +304,10 @@ function handleMarkerClick(location, marker) {
       'color:white;background:' + ct.color + ';margin-right:4px;">' +
       ct.symbol + ' ' + ct.label + '</span>' +
       '🪙 ' + displayValue(ch) + '</div>' +
+      (chDesc
+        ? '<div style="font-size:11px;color:#6b7280;font-style:italic;margin-bottom:4px;">' +
+          esc(chDesc) + '</div>'
+        : '') +
       failedNote +
       '<div style="font-size:12px;color:#555;margin-bottom:6px;">Claim for team:</div>' +
       '<div style="display:flex;gap:5px;">' + teamBtns + '</div>' +
@@ -350,6 +357,7 @@ function handleMarkerClick(location, marker) {
   // ── Claim button ───────────────────────────────────────────────
   popupContent.querySelector('#apply-btn').addEventListener('click', async function() {
     if (isOwnStop) return;
+    if (gameOverGuard(gameState.data)) return;
 
     const selectedIndex = parseInt(popupContent.querySelector('#team-select').value);
     const selectedValue = parseInt(popupContent.querySelector('#value-select').value);
@@ -409,6 +417,7 @@ function handleMarkerClick(location, marker) {
         timestamp: Date.now(),
         team:      selectedIndex,
         type:      'stop',
+        big:       selectedValue >= TOAST_MIN_STOP_VALUE,
         message:   tName(selectedIndex) + ' claimed ' + location.name +
                    ' for ' + selectedValue + ' coin' + (selectedValue !== 1 ? 's' : '') +
                    ' (' + newBalance + ' coins left)',
@@ -418,6 +427,7 @@ function handleMarkerClick(location, marker) {
         timestamp: Date.now(),
         team:      selectedIndex,
         type:      'stop',
+        big:       true,
         message:   tName(selectedIndex) + ' took control of ' + location.name +
                    ' at value ' + selectedValue +
                    ' (spent ' + cost + ' coin' + (cost !== 1 ? 's' : '') +
@@ -433,6 +443,7 @@ function handleMarkerClick(location, marker) {
   const bankruptBtn = popupContent.querySelector('#bankrupt-btn');
   if (bankruptBtn) {
     bankruptBtn.addEventListener('click', async function() {
+      if (gameOverGuard(gameState.data)) return;
       const myCoins = (gameState.data.coins && gameState.data.coins[myTeam]) || 0;
 
       const confirmed = window.confirm(
@@ -475,6 +486,7 @@ function handleMarkerClick(location, marker) {
   if (ch) {
     popupContent.querySelectorAll('[data-claim-team]').forEach(function(btn) {
       btn.addEventListener('click', async function() {
+        if (gameOverGuard(gameState.data)) return;
         const teamIndex = parseInt(btn.dataset.claimTeam);
 
         let picked = null;

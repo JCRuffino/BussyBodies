@@ -1,9 +1,10 @@
-import { pushState, listenToGameState, clearLog, listenToLog } from './firebase.js';
+import { pushState, mutateState, pushLog, listenToGameState, clearLog, listenToLog } from './firebase.js';
 import { initMap, addMarkers, getMap } from './map.js';
 import { initSettings } from './settings.js';
 import { renderAll } from './ui.js';
 import { allLocations, allChallenges, gameState, fixArrays, toKey,
-         spawnChallenge, drawChallenge, buildPool, esc, states } from './shared.js';
+         spawnChallenge, drawChallenge, buildPool, esc, states,
+         formatCountdown } from './shared.js';
 
 console.log('✅ main.js loaded');
 
@@ -59,8 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ── History state ──────────────────────────────────────────────
-  let historyUnsubscribe = null;
-  let cachedEntries      = [];
+  let cachedEntries = [];
 
   function renderHistory(entries) {
     const container  = document.getElementById('history-list');
@@ -89,6 +89,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     container.innerHTML = filtered.map(e => {
       const time  = new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // Timer events (countdown started/ended) get a full-width banner
+      if (e.type === 'timer') {
+        return (
+          '<div style="background:#111827;color:white;border-radius:12px;padding:10px 14px;' +
+          'margin-bottom:8px;text-align:center;font-size:13px;font-weight:700;">' +
+            esc(e.message) +
+            ' <span style="opacity:0.6;font-weight:600;font-size:11px;">' + time + '</span>' +
+          '</div>'
+        );
+      }
+
       const badge = teamBadge(e.team);
       return (
         '<div style="background:white;border:1px solid #e5e7eb;border-radius:12px;' +
@@ -104,21 +116,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
-  function loadHistory() {
-    const container = document.getElementById('history-list');
-    container.innerHTML =
-      '<span style="font-size:13px;color:#9ca3af;font-style:italic;">Loading...</span>';
+  // ── Toasts for big events ──────────────────────────────────────
+  const toastColors = { 0: '#6b7280', 1: '#e63946', 2: '#1d6fd1', 3: '#2a9d3f' };
 
-    if (historyUnsubscribe) {
-      historyUnsubscribe();
-      historyUnsubscribe = null;
+  function showToast(e) {
+    const cont = document.getElementById('toast-container');
+    const div  = document.createElement('div');
+    div.className = 'toast';
+    div.style.borderLeft = '5px solid ' + (toastColors[e.team] || '#6b7280');
+    div.textContent = e.message;
+    cont.appendChild(div);
+    requestAnimationFrame(() => div.classList.add('show'));
+    setTimeout(() => {
+      div.classList.remove('show');
+      setTimeout(() => div.remove(), 300);
+    }, 6000);
+  }
+
+  let lastToastTs = null;
+  function handleToasts(entries) {
+    const newest = entries.length ? entries[0].timestamp : 0;
+    if (lastToastTs === null) {
+      lastToastTs = newest; // don't replay the backlog on page load
+      return;
     }
+    entries
+      .filter(e => e.big && e.timestamp > lastToastTs)
+      .reverse()
+      .forEach(showToast);
+    if (newest > lastToastTs) lastToastTs = newest;
+  }
 
-    historyUnsubscribe = listenToLog(entries => {
-      cachedEntries = entries;
+  // One permanent log listener feeds the history screen and the toasts
+  listenToLog(entries => {
+    cachedEntries = entries;
+    if (document.getElementById('screen-history').classList.contains('active')) {
       renderHistory(entries);
+    }
+    handleToasts(entries);
+  });
+
+  // ── Countdown ticker ───────────────────────────────────────────
+  let endLogAttempted = false;
+
+  function maybeLogGameEnd() {
+    if (endLogAttempted) return;
+    endLogAttempted = true;
+    // The endLogged flag is flipped in a transaction so exactly one
+    // device writes the GAME OVER entry
+    mutateState(gs => {
+      if (!gs.timer || !gs.timer.endsAt) return;
+      if (Date.now() < gs.timer.endsAt) return;
+      if (gs.timer.endLogged) return;
+      gs.timer.endLogged = true;
+      return gs;
+    }).then(committed => {
+      if (committed) {
+        pushLog({
+          timestamp: Date.now(),
+          team:      0,
+          type:      'timer',
+          big:       true,
+          message:   '🏁 GAME OVER — the countdown has ended! Check the leaderboard for final standings.',
+        });
+      }
     });
   }
+
+  setInterval(() => {
+    const pill = document.getElementById('countdown-pill');
+    const t    = gameState.data && gameState.data.timer;
+    if (!t || !t.endsAt) {
+      pill.style.display = 'none';
+      endLogAttempted = false;
+      return;
+    }
+    const remaining = t.endsAt - Date.now();
+    pill.style.display = 'block';
+    if (remaining <= 0) {
+      pill.textContent = '⏱️ GAME OVER';
+      pill.classList.add('ended');
+      maybeLogGameEnd();
+    } else {
+      pill.textContent = '⏱️ ' + formatCountdown(remaining);
+      pill.classList.remove('ended');
+      endLogAttempted = false;
+    }
+  }, 1000);
 
   // ── Nav ────────────────────────────────────────────────────────
   document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -128,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('active');
       document.getElementById('screen-' + btn.dataset.screen).classList.add('active');
       if (btn.dataset.screen === 'map')     setTimeout(() => getMap().invalidateSize(), 50);
-      if (btn.dataset.screen === 'history') loadHistory();
+      if (btn.dataset.screen === 'history') renderHistory(cachedEntries);
     });
   });
 
@@ -179,8 +263,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const id        = parseInt(parts[0].trim());
       const type      = parts[1].trim();
       const coinValue = parts[2] && parts[2].trim() !== '' ? parseInt(parts[2].trim()) : null;
+      // Description is everything after the third comma, so it may itself contain commas
+      const description = parts.length > 3 ? parts.slice(3).join(',').trim() : '';
       if (isNaN(id) || !type) return;
-      allChallenges.push({ id, type, coinValue });
+      allChallenges.push({
+        id, type, coinValue,
+        description: description ||
+          'Lorem ipsum dolor sit amet, consectetur adipiscing elit — challenge text coming soon.',
+      });
     });
     console.log('⚡ Challenges loaded:', allChallenges.length);
 

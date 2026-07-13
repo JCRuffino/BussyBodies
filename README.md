@@ -14,7 +14,7 @@ Built with vanilla JavaScript (ES modules), [Leaflet](https://leafletjs.com/) + 
 - `firebase.js` — Firebase setup, transactional state updates, game log
 - `shared.js` — game state helpers and constants shared across modules
 - `locations.csv` — bus stops (tab-separated: Name, Latitude, Longitude)
-- `challenges.csv` — challenge pool (comma-separated: ID, Type, CoinValue)
+- `challenges.csv` — challenge pool (comma-separated: ID, Type, CoinValue, Description; description is optional and may contain commas — placeholder text is shown when it's empty)
 
 ## Running locally
 
