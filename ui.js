@@ -474,32 +474,49 @@ function renderHeldPanel(gs) {
   const heldList  = document.getElementById('held-challenges-list');
   const held      = gs.heldChallenges || { 1: [], 2: [], 3: [] };
   const teamNames = (gs.teamNames) || {};
+  const myTeam    = getMyTeam();
   const hasAny    = (held[1] || []).length + (held[2] || []).length + (held[3] || []).length > 0;
 
     function tName(i) {
     return i === 0 ? 'No Control' : (teamNames[i] || states[i].label);
   }
 
-  if (!hasAny) {
+  if (!hasAny && myTeam === null) {
     heldList.innerHTML = '<span class="no-challenges">No held challenges</span>';
     return;
   }
 
   heldList.innerHTML = '';
 
-  [1, 2, 3].forEach(teamIndex => {
+  // Rival teams' summaries come first so they're visible without
+  // scrolling; your own team's full cards go last
+  const order = myTeam === null
+    ? [1, 2, 3]
+    : [1, 2, 3].filter(t => t !== myTeam).concat(myTeam);
+
+  order.forEach(teamIndex => {
     const teamHeld = held[teamIndex] || [];
-    if (teamHeld.length === 0) return;
+    // Your own team's section always shows, as a hand-size reminder
+    if (teamHeld.length === 0 && teamIndex !== myTeam) return;
 
     const teamName = teamNames[teamIndex] || states[teamIndex].label;
     const dot = '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' +
       states[teamIndex].color + ';flex-shrink:0;"></span>';
     const label = document.createElement('div');
     label.className = 'held-team-label';
-    label.innerHTML = dot + ' ' + esc(teamName);
+    label.innerHTML = dot + ' ' + esc(teamName) +
+      ' <span style="color:#9ca3af;font-size:12px;font-weight:600;">' +
+      teamHeld.length + '/' + MAX_HELD + '</span>';
     heldList.appendChild(label);
 
-    const myTeam = getMyTeam();
+    if (teamHeld.length === 0) {
+      const none = document.createElement('div');
+      none.className = 'no-challenges';
+      none.textContent = 'No held challenges';
+      heldList.appendChild(none);
+      return;
+    }
+
     const isMine = myTeam === null || myTeam === teamIndex;
 
     // Rival teams' challenges show as compact summary chips —
