@@ -28,32 +28,20 @@
 .nav-btn {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 9px;
-  font-weight: 600;
+  /* Text-only labels, sized to the viewport so they're as large as fits */
+  font-size: clamp(9px, 2.4vw, 18px);
+  font-weight: 700;
   color: #9ca3af;
   background: none;
   border: none;
   cursor: pointer;
-  gap: 2px;
   padding: 0 2px;
   transition: color 0.15s;
   min-width: 0;
   overflow: hidden;
-}
-.nav-btn .nav-icon {
-  font-size: 20px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.nav-btn span:not(.nav-icon) {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-  text-align: center;
 }
 .nav-btn.active { color: #1d6fd1; }
 
@@ -705,24 +693,12 @@
 
   <!-- NAV -->
   <div id="nav-bar">
-    <button class="nav-btn active" data-screen="map">
-      <span class="nav-icon">🗺️</span>Map
-    </button>
-    <button class="nav-btn" data-screen="challenges">
-      <span class="nav-icon">⚡</span>Challenges
-    </button>
-    <button class="nav-btn" data-screen="leaderboard">
-      <span class="nav-icon">🏆</span>Leaderboard
-    </button>
-    <button class="nav-btn" data-screen="settings">
-      <span class="nav-icon">⚙️</span>Settings
-    </button>
-    <button class="nav-btn" data-screen="rules">
-      <span class="nav-icon">📖</span>Rules
-    </button>
-      <button class="nav-btn" data-screen="history">
-    <span class="nav-icon">📜</span>History
-  </button>
+    <button class="nav-btn active" data-screen="map">Map</button>
+    <button class="nav-btn" data-screen="challenges">Challenges</button>
+    <button class="nav-btn" data-screen="leaderboard">Leaderboard</button>
+    <button class="nav-btn" data-screen="settings">Settings</button>
+    <button class="nav-btn" data-screen="rules">Rules</button>
+    <button class="nav-btn" data-screen="history">History</button>
   </div>
 
 
